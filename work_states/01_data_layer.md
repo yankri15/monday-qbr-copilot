@@ -6,9 +6,9 @@
 
 | Field         | Value                          |
 |---------------|--------------------------------|
-| Status        | `NOT_STARTED`                  |
-| Owner         | —                              |
-| Last Updated  | —                              |
+| Status        | `DONE`                         |
+| Owner         | Agent                          |
+| Last Updated  | 2026-04-14                     |
 
 ### Dependencies
 
@@ -26,7 +26,7 @@ Create the canonical data models and a loading module so that every downstream c
 
 ## Plan
 
-- [ ] Define the `CustomerAccount` Pydantic model in `backend/app/models/customer.py` with fields and types:
+- [x] Define the `CustomerAccount` Pydantic model in `backend/app/models/customer.py` with fields and types:
   ```
   account_name:            str          # Customer name
   plan_type:               str          # Subscription type — "Enterprise" | "Pro" | "Basic"
@@ -42,13 +42,13 @@ Create the canonical data models and a loading module so that every downstream c
   crm_notes:               str          # Qualitative notes from the CSM
   feedback_summary:        str          # Key feedback or feature requests
   ```
-- [ ] Create the data loader module at `backend/app/data/loader.py`:
+- [x] Create the data loader module at `backend/app/data/loader.py`:
   - Use `openpyxl` to read the Excel file
   - Parse each row into a `CustomerAccount` instance
   - Expose `get_all_accounts() -> list[CustomerAccount]`
   - Expose `get_account_by_name(name: str) -> CustomerAccount | None`
-- [ ] Copy or symlink the Excel file to `backend/data/sample_customers_q3_2025.xlsx` so the backend has a stable reference path
-- [ ] Write a quick smoke test (runnable script or pytest) that validates:
+- [x] Copy or symlink the Excel file to `backend/data/sample_customers_q3_2025.xlsx` so the backend has a stable reference path
+- [x] Write a quick smoke test (runnable script or pytest) that validates:
   - Exactly 5 accounts are loaded
   - All field types match the Pydantic schema
   - Known values spot-check (e.g., Altura Systems has 420 active users)
@@ -57,17 +57,20 @@ Create the canonical data models and a loading module so that every downstream c
 
 ## Acceptance Criteria
 
-- [ ] `from app.models.customer import CustomerAccount` imports without error
-- [ ] `from app.data.loader import get_all_accounts` returns exactly 5 `CustomerAccount` objects
-- [ ] `get_account_by_name("Coral Retail")` returns the correct account with `risk_engine_score == 0.73`
-- [ ] All 13 fields are present and correctly typed on every account object
-- [ ] The Excel file path is relative to the backend root (no hardcoded absolute paths)
+- [x] `from app.models.customer import CustomerAccount` imports without error
+- [x] `from app.data.loader import get_all_accounts` returns exactly 5 `CustomerAccount` objects
+- [x] `get_account_by_name("Coral Retail")` returns the correct account with `risk_engine_score == 0.73`
+- [x] All 13 fields are present and correctly typed on every account object
+- [x] The Excel file path is relative to the backend root (no hardcoded absolute paths)
 
 ---
 
 ## Technical Decisions
 
-_No decisions yet._
+- `plan_type` and `preferred_channel` are modeled as `Literal[...]` values for stronger validation while keeping the external interface string-based.
+- The backend stores the sample workbook at `backend/data/sample_customers_q3_2025.xlsx` as a local copy for predictable runtime packaging and deployment behavior.
+- The loader validates the workbook header row against the expected 13-column schema before parsing any records.
+- Workbook reads are cached in-process via `lru_cache(maxsize=1)` so repeated API calls do not re-open the spreadsheet unnecessarily.
 
 ---
 
@@ -82,4 +85,7 @@ _No decisions yet._
 
 ## Log
 
-_No entries yet._
+- **2026-04-14** — Inspected `docs/sample_customers_q3_2025.xlsx` and confirmed the worksheet schema exactly matches the planned 13 fields.
+- **2026-04-14** — Added `CustomerAccount` Pydantic model and data-loader helpers under `backend/app/models/` and `backend/app/data/`.
+- **2026-04-14** — Copied the sample workbook to `backend/data/sample_customers_q3_2025.xlsx` for stable backend-relative access.
+- **2026-04-14** — Added `backend/tests/test_data_loader.py` smoke tests and verified imports, row count, field coverage, and known value checks.
