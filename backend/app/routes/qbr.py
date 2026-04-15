@@ -1,6 +1,8 @@
 """QBR generation and refinement endpoints."""
 
+import asyncio
 import os
+import threading
 import time
 import traceback
 from typing import Any, AsyncGenerator
@@ -187,7 +189,14 @@ async def _generate_qbr_stream_vercel_fallback(
     focus_areas: list[str],
     tone: str,
 ) -> AsyncGenerator[str, None]:
-    """Emit a Vercel-safe SSE sequence, streaming one step event at a time via astream."""
+    """Stream one step at a time by running graph.stream() in a thread.
+
+    Sync LangGraph nodes (OpenAI calls) block the event loop, so running them
+    directly in the async generator prevents FastAPI from flushing SSE events
+    to the network between nodes.  Offloading to a background thread keeps the
+    event loop free: each `await queue.get()` gives asyncio time to flush the
+    previous step's events before the next node begins.
+    """
 
     thread_id = str(uuid4())
     run_id = str(uuid4())
@@ -210,17 +219,50 @@ async def _generate_qbr_stream_vercel_fallback(
         "judge_critique": "",
     }
 
-    result_state: dict[str, Any] = {}
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[dict[str, Any] | Exception | None] = asyncio.Queue()
+
+    def _sync_producer() -> None:
+        """Run graph.stream() in a thread; push chunks into the async queue."""
+        try:
+            for chunk in graph.stream(input_state, config=config, stream_mode="updates"):
+                # #region agent log
+                print(f"[debug-8ee21d] THREAD_CHUNK keys={list(chunk.keys())} elapsed={time.monotonic()-_t0:.2f}s", flush=True)
+                # #endregion
+                loop.call_soon_threadsafe(queue.put_nowait, chunk)
+        except Exception as exc:
+            # #region agent log
+            print(f"[debug-8ee21d] THREAD_ERROR err={exc!r}", flush=True)
+            # #endregion
+            loop.call_soon_threadsafe(queue.put_nowait, exc)
+        finally:
+            # #region agent log
+            print(f"[debug-8ee21d] THREAD_DONE total={time.monotonic()-_t0:.2f}s", flush=True)
+            # #endregion
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    worker = threading.Thread(target=_sync_producer, daemon=True)
+    worker.start()
 
     # #region agent log
-    print(f"[debug-8ee21d] ASTREAM_START t={time.monotonic():.3f}", flush=True)
+    print(f"[debug-8ee21d] QUEUE_START t={time.monotonic():.3f}", flush=True)
     # #endregion
 
+    result_state: dict[str, Any] = {}
+
     try:
-        async for chunk in graph.astream(input_state, config=config, stream_mode="updates"):
-            for node_name, updates in chunk.items():
+        while True:
+            item = await queue.get()
+
+            if item is None:
+                break
+
+            if isinstance(item, Exception):
+                raise item
+
+            for node_name, updates in item.items():
                 # #region agent log
-                print(f"[debug-8ee21d] NODE_DONE node={node_name!r} t={time.monotonic():.3f} elapsed={time.monotonic()-_t0:.4f}s", flush=True)
+                print(f"[debug-8ee21d] NODE_YIELD node={node_name!r} elapsed={time.monotonic()-_t0:.2f}s", flush=True)
                 # #endregion
 
                 yield _encode_sse(
@@ -242,15 +284,18 @@ async def _generate_qbr_stream_vercel_fallback(
 
     except Exception as exc:
         # #region agent log
-        print(f"[debug-8ee21d] ASTREAM_EXCEPTION t={time.monotonic():.3f} err={exc!r}", flush=True)
+        print(f"[debug-8ee21d] QUEUE_EXC err={exc!r}", flush=True)
         traceback.print_exc()
         # #endregion
         print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
         yield _encode_sse(RunErrorEvent(message="Failed to generate QBR. Please try again."))
+        worker.join(timeout=5)
         return
 
+    worker.join(timeout=10)
+
     # #region agent log
-    print(f"[debug-8ee21d] ASTREAM_DONE t={time.monotonic():.3f} total={time.monotonic()-_t0:.4f}s", flush=True)
+    print(f"[debug-8ee21d] STREAM_COMPLETE total={time.monotonic()-_t0:.2f}s", flush=True)
     # #endregion
 
     final_draft = result_state.get("final_draft", "")
@@ -320,7 +365,14 @@ async def generate_qbr(
             tone=payload.tone,
         )
 
-    return StreamingResponse(stream, media_type="text/event-stream")
+    return StreamingResponse(
+        stream,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/refine-qbr", response_model=RefineQBRResponse)
