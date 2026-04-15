@@ -1,6 +1,7 @@
 """QBR generation and refinement endpoints."""
 
 import os
+import time
 import traceback
 from typing import Any, AsyncGenerator
 from uuid import uuid4
@@ -192,13 +193,33 @@ async def _generate_qbr_stream_vercel_fallback(
     run_id = str(uuid4())
     final_message_id = f"draft-{uuid4()}"
 
+    # #region agent log
+    _t0 = time.monotonic()
+    print(f"[debug-8ee21d] FALLBACK_START t0={_t0:.3f} account={account.account_name!r}", flush=True)
+    # #endregion
+
     try:
+        # #region agent log
+        _t1 = time.monotonic()
+        print(f"[debug-8ee21d] PIPELINE_START t={_t1:.3f} elapsed_before_pipeline={_t1-_t0:.4f}s", flush=True)
+        # #endregion
         result = run_qbr_pipeline(account, focus_areas=focus_areas, tone=tone)
+        # #region agent log
+        _t2 = time.monotonic()
+        print(f"[debug-8ee21d] PIPELINE_DONE t={_t2:.3f} pipeline_duration={_t2-_t1:.4f}s total={_t2-_t0:.4f}s keys={list(result.keys() if hasattr(result, 'keys') else [])}", flush=True)
+        # #endregion
     except Exception as exc:
-        print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
+        # #region agent log
+        print(f"[debug-8ee21d] PIPELINE_EXCEPTION t={time.monotonic():.3f} err={exc!r}", flush=True)
         traceback.print_exc()
+        # #endregion
+        print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
         yield _encode_sse(RunErrorEvent(message="Failed to generate QBR. Please try again."))
         return
+
+    # #region agent log
+    print(f"[debug-8ee21d] EMITTING_EVENTS t={time.monotonic():.3f} — all events about to be yielded in burst", flush=True)
+    # #endregion
 
     yield _encode_sse(RunStartedEvent(threadId=thread_id, runId=run_id))
 
