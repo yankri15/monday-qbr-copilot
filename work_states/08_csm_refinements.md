@@ -6,7 +6,7 @@
 
 | Field         | Value                          |
 |---------------|--------------------------------|
-| Status        | `IN_PROGRESS`                  |
+| Status        | `DONE`                         |
 | Owner         | `Codex`                        |
 | Last Updated  | 2026-04-15                     |
 
@@ -408,3 +408,4 @@ Transform the QBR Co-Pilot from a generic PoC into a tool that a monday.com CSM 
 - [PROGRESS] 2026-04-15: Added Markdown and PDF export, replaced the clipboard-only action with an export menu, and exposed a disabled email-delivery placeholder to match the next planned product step.
 - [RESOLVED] 2026-04-15: Verified upload and export locally: `/api/upload-data` accepted a CSV demo account, `/api/accounts` returned uploaded accounts with source metadata, `/api/export-pdf` returned a valid single-page PDF, frontend lint/typecheck passed, backend tests passed, and Playwright snapshots showed the upload zone plus export-ready workspace UI.
 - [RESOLVED] 2026-04-15: Ran live control verification against OpenAI-backed generations. `focus_areas=["churn_risk"]` produced a more retention-heavy Coral Retail draft, `focus_areas=["automation_adoption"]` shifted the same account toward enablement/automation recovery, `focus_areas=["upsell_opportunity"]` made Altura Systems more expansion-forward, and tone variants (`executive`, `team_lead`, `technical`) changed the Altura draft from strategic language to operational workflow guidance to integration/data-flow detail.
+- [DONE] 2026-04-15: Closed `08_csm_refinements` after final UI/dev-environment polish. Verified the dashboard loads sample data cleanly on both `localhost:3001` and `127.0.0.1:3001`, with the recruiter-demo-ready CSM workflow, controls, uploads, exports, and monday-first guardrails all in place.
