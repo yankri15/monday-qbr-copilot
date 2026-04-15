@@ -126,41 +126,18 @@ export async function generateQBR(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  // #region agent log
-  const _dbgStart = Date.now();
-  let _dbgReadCount = 0;
-  let _dbgEventCount = 0;
-  fetch('http://127.0.0.1:7610/ingest/4e46dfaf-ab6a-458e-a117-1dee12909194',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8ee21d'},body:JSON.stringify({sessionId:'8ee21d',location:'api.ts:stream_start',message:'SSE stream opened',data:{t:_dbgStart},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
-  // #endregion
-
   while (true) {
-    // #region agent log
-    const _dbgReadT = Date.now();
-    // #endregion
     const { done, value } = await reader.read();
     buffer += decoder.decode(value, { stream: !done });
 
     const messages = buffer.split("\n\n");
     buffer = messages.pop() ?? "";
 
-    // #region agent log
-    _dbgReadCount++;
-    const _dbgEventsInChunk = messages.filter(m => m.includes('data:')).length;
-    if (_dbgEventsInChunk > 0) {
-      fetch('http://127.0.0.1:7610/ingest/4e46dfaf-ab6a-458e-a117-1dee12909194',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8ee21d'},body:JSON.stringify({sessionId:'8ee21d',location:'api.ts:read_chunk',message:'SSE chunk received',data:{readN:_dbgReadCount,eventsInChunk:_dbgEventsInChunk,elapsedMs:_dbgReadT-_dbgStart,done},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
-    }
-    // #endregion
-
     for (const message of messages) {
       const parsed = parseSseChunk(message);
       if (!parsed) {
         continue;
       }
-
-      // #region agent log
-      _dbgEventCount++;
-      fetch('http://127.0.0.1:7610/ingest/4e46dfaf-ab6a-458e-a117-1dee12909194',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8ee21d'},body:JSON.stringify({sessionId:'8ee21d',location:'api.ts:event',message:'SSE event received',data:{n:_dbgEventCount,type:parsed.data.type,elapsedMs:Date.now()-_dbgStart},timestamp:Date.now(),hypothesisId:'H-B'})}).catch(()=>{});
-      // #endregion
 
       handlers.onEvent?.(parsed.data);
 
@@ -178,9 +155,6 @@ export async function generateQBR(
     }
 
     if (done) {
-      // #region agent log
-      fetch('http://127.0.0.1:7610/ingest/4e46dfaf-ab6a-458e-a117-1dee12909194',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8ee21d'},body:JSON.stringify({sessionId:'8ee21d',location:'api.ts:stream_done',message:'SSE stream ended',data:{totalReads:_dbgReadCount,totalEvents:_dbgEventCount,totalElapsedMs:Date.now()-_dbgStart},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
-      // #endregion
       break;
     }
   }

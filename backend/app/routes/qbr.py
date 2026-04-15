@@ -1,8 +1,5 @@
 """QBR generation and refinement endpoints."""
 
-import asyncio
-import os
-import threading
 import time
 import traceback
 from typing import Any, AsyncGenerator
@@ -15,23 +12,23 @@ from ag_ui.core import (
     EventType,
     RunAgentInput,
     RunErrorEvent,
-    RunStartedEvent,
     RunFinishedEvent,
     StateDeltaEvent,
     StateSnapshotEvent,
-    StepFinishedEvent,
     StepStartedEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
     TextMessageStartEvent,
 )
 
-from app.agents.graph import build_qbr_langgraph_agent, get_qbr_graph, run_qbr_pipeline
+from app.agents.graph import build_qbr_langgraph_agent
 from app.agents.refiner import refine_draft
 from app.data.upload_store import get_uploaded_account_by_name
 from app.models.customer import CustomerAccount
 from app.models.api import GenerateQBRRequest, HealthResponse, RefineQBRRequest, RefineQBRResponse
 from app.data.loader import get_account_by_name
+
+LOG_PATH = "/tmp/debug-8ee21d.log"
 
 router = APIRouter(tags=["qbr"])
 
@@ -59,6 +56,19 @@ PASSTHROUGH_EVENT_TYPES = {
 }
 
 
+def _dbg(msg: str, **kwargs: Any) -> None:
+    """Append an NDJSON debug line to the log file and print for Vercel logs."""
+    import json
+    entry = {"sessionId": "8ee21d", "location": "qbr.py", "message": msg, "data": kwargs, "timestamp": int(time.time() * 1000)}
+    line = json.dumps(entry)
+    try:
+        with open(LOG_PATH, "a") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+    print(f"[debug-8ee21d] {msg} {kwargs}", flush=True)
+
+
 def _encode_sse(event: BaseEvent) -> str:
     payload = event.model_dump_json(by_alias=True, exclude_none=True)
     event_name = event.type.value if hasattr(event.type, "value") else str(event.type)
@@ -80,21 +90,6 @@ def _build_state_delta(
     return delta
 
 
-def _should_use_deployment_safe_stream(request: Request) -> bool:
-    """Prefer the manual SSE path when running in deployment environments."""
-
-    deployment_markers = ("VERCEL", "VERCEL_ENV", "VERCEL_URL")
-    if any(os.getenv(marker) for marker in deployment_markers):
-        return True
-
-    host = request.headers.get("host", "").casefold()
-    if host.endswith(".vercel.app"):
-        return True
-
-    forwarded_host = request.headers.get("x-forwarded-host", "").casefold()
-    return forwarded_host.endswith(".vercel.app")
-
-
 async def _generate_qbr_stream(
     *,
     request: Request,
@@ -102,6 +97,13 @@ async def _generate_qbr_stream(
     focus_areas: list[str],
     tone: str,
 ) -> AsyncGenerator[str, None]:
+    """Stream AG-UI events from the LangGraphAgent."""
+
+    # #region agent log
+    _t0 = time.monotonic()
+    _dbg("AGUI_STREAM_START", account=account.account_name, hypothesisId="H1-H4")
+    # #endregion
+
     agent = build_qbr_langgraph_agent()
     run_input = RunAgentInput(
         threadId=str(uuid4()),
@@ -123,10 +125,26 @@ async def _generate_qbr_stream(
     emitted_final_draft = False
     final_message_id = f"draft-{uuid4()}"
 
+    # #region agent log
+    _event_count = 0
+    _dbg("AGUI_AGENT_RUN_STARTING", elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H2")
+    # #endregion
+
     try:
         async for event in agent.run(run_input):
             if await request.is_disconnected():
+                # #region agent log
+                _dbg("CLIENT_DISCONNECTED", elapsed=f"{time.monotonic()-_t0:.3f}s")
+                # #endregion
                 break
+
+            # #region agent log
+            _event_count += 1
+            event_type_str = event.type.value if hasattr(event, "type") and hasattr(event.type, "value") else str(type(event).__name__)
+            step_name_str = getattr(event, "step_name", None)
+            if _event_count <= 30 or isinstance(event, (StepStartedEvent, StateSnapshotEvent)):
+                _dbg("AGUI_EVENT", n=_event_count, type=event_type_str, step=step_name_str, elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
+            # #endregion
 
             if isinstance(event, StepStartedEvent):
                 step_message = STEP_MESSAGES.get(event.step_name)
@@ -139,6 +157,9 @@ async def _generate_qbr_stream(
                 current_snapshot = dict(event.snapshot)
                 delta = _build_state_delta(previous_snapshot, current_snapshot)
                 if delta:
+                    # #region agent log
+                    _dbg("AGUI_STATE_DELTA", keys=[d["path"] for d in delta], elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
+                    # #endregion
                     yield _encode_sse(StateDeltaEvent(delta=delta))
 
                 final_draft = current_snapshot.get("final_draft")
@@ -173,150 +194,28 @@ async def _generate_qbr_stream(
                     emitted_final_draft = True
 
             yield _encode_sse(event)
+
     except HTTPException:
         raise
     except Exception as exc:
-        print(f"Primary QBR stream failed: {exc!r}", flush=True)
+        # #region agent log
+        _dbg("AGUI_EXCEPTION", err=repr(exc), elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H2")
         traceback.print_exc()
+        # #endregion
         yield _encode_sse(
             RunErrorEvent(message="Failed to generate QBR. Please try again.")
         )
 
-
-async def _generate_qbr_stream_vercel_fallback(
-    *,
-    account: CustomerAccount,
-    focus_areas: list[str],
-    tone: str,
-) -> AsyncGenerator[str, None]:
-    """Stream one step at a time by running graph.stream() in a thread.
-
-    Sync LangGraph nodes (OpenAI calls) block the event loop, so running them
-    directly in the async generator prevents FastAPI from flushing SSE events
-    to the network between nodes.  Offloading to a background thread keeps the
-    event loop free: each `await queue.get()` gives asyncio time to flush the
-    previous step's events before the next node begins.
-    """
-
-    thread_id = str(uuid4())
-    run_id = str(uuid4())
-    final_message_id = f"draft-{uuid4()}"
-
     # #region agent log
-    _t0 = time.monotonic()
-    print(f"[debug-8ee21d] FALLBACK_START t0={_t0:.3f} account={account.account_name!r}", flush=True)
+    _dbg("AGUI_STREAM_DONE", total_events=_event_count, elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
     # #endregion
-
-    yield _encode_sse(RunStartedEvent(threadId=thread_id, runId=run_id))
-
-    graph = get_qbr_graph()
-    config = {"configurable": {"thread_id": f"qbr-{uuid4()}"}}
-    input_state: dict[str, Any] = {
-        "account": account,
-        "focus_areas": list(focus_areas or []),
-        "tone": tone,
-        "judge_retry_count": 0,
-        "judge_critique": "",
-    }
-
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[dict[str, Any] | Exception | None] = asyncio.Queue()
-
-    def _sync_producer() -> None:
-        """Run graph.stream() in a thread; push chunks into the async queue."""
-        try:
-            for chunk in graph.stream(input_state, config=config, stream_mode="updates"):
-                # #region agent log
-                print(f"[debug-8ee21d] THREAD_CHUNK keys={list(chunk.keys())} elapsed={time.monotonic()-_t0:.2f}s", flush=True)
-                # #endregion
-                loop.call_soon_threadsafe(queue.put_nowait, chunk)
-        except Exception as exc:
-            # #region agent log
-            print(f"[debug-8ee21d] THREAD_ERROR err={exc!r}", flush=True)
-            # #endregion
-            loop.call_soon_threadsafe(queue.put_nowait, exc)
-        finally:
-            # #region agent log
-            print(f"[debug-8ee21d] THREAD_DONE total={time.monotonic()-_t0:.2f}s", flush=True)
-            # #endregion
-            loop.call_soon_threadsafe(queue.put_nowait, None)
-
-    worker = threading.Thread(target=_sync_producer, daemon=True)
-    worker.start()
-
-    # #region agent log
-    print(f"[debug-8ee21d] QUEUE_START t={time.monotonic():.3f}", flush=True)
-    # #endregion
-
-    result_state: dict[str, Any] = {}
-
-    try:
-        while True:
-            item = await queue.get()
-
-            if item is None:
-                break
-
-            if isinstance(item, Exception):
-                raise item
-
-            for node_name, updates in item.items():
-                # #region agent log
-                print(f"[debug-8ee21d] NODE_YIELD node={node_name!r} elapsed={time.monotonic()-_t0:.2f}s", flush=True)
-                # #endregion
-
-                yield _encode_sse(
-                    StepStartedEvent(stepName=node_name, message=STEP_MESSAGES.get(node_name))
-                )
-
-                for key in STREAMED_STATE_KEYS:
-                    if key in updates:
-                        yield _encode_sse(
-                            StateDeltaEvent(
-                                delta=[{"op": "add", "path": f"/{key}", "value": updates[key]}]
-                            )
-                        )
-
-                if "final_draft" in updates:
-                    result_state["final_draft"] = updates["final_draft"]
-
-                yield _encode_sse(StepFinishedEvent(stepName=node_name))
-
-    except Exception as exc:
-        # #region agent log
-        print(f"[debug-8ee21d] QUEUE_EXC err={exc!r}", flush=True)
-        traceback.print_exc()
-        # #endregion
-        print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
-        yield _encode_sse(RunErrorEvent(message="Failed to generate QBR. Please try again."))
-        worker.join(timeout=5)
-        return
-
-    worker.join(timeout=10)
-
-    # #region agent log
-    print(f"[debug-8ee21d] STREAM_COMPLETE total={time.monotonic()-_t0:.2f}s", flush=True)
-    # #endregion
-
-    final_draft = result_state.get("final_draft", "")
-    if final_draft:
-        yield _encode_sse(TextMessageStartEvent(messageId=final_message_id))
-        yield _encode_sse(
-            TextMessageContentEvent(
-                messageId=final_message_id,
-                delta=final_draft,
-            )
-        )
-        yield _encode_sse(TextMessageEndEvent(messageId=final_message_id))
-
-    yield _encode_sse(RunFinishedEvent(threadId=thread_id, runId=run_id))
 
 
 @router.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Backend health endpoint."""
 
-    return HealthResponse(status="ok", version="fix-progressive-streaming")
+    return HealthResponse(status="ok", version="agui-restore-v1")
 
 
 def _resolve_requested_account(payload: GenerateQBRRequest) -> CustomerAccount | None:
@@ -351,26 +250,20 @@ async def generate_qbr(
     if account is None:
         raise HTTPException(status_code=404, detail=f"Unknown account: {account_name}")
 
-    if _should_use_deployment_safe_stream(request):
-        stream = _generate_qbr_stream_vercel_fallback(
-            account=account,
-            focus_areas=payload.focus_areas,
-            tone=payload.tone,
-        )
-    else:
-        stream = _generate_qbr_stream(
-            request=request,
-            account=account,
-            focus_areas=payload.focus_areas,
-            tone=payload.tone,
-        )
+    stream = _generate_qbr_stream(
+        request=request,
+        account=account,
+        focus_areas=payload.focus_areas,
+        tone=payload.tone,
+    )
 
     return StreamingResponse(
         stream,
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
     )
 
