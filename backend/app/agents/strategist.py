@@ -4,21 +4,10 @@ from app.agents.brand_guardrails import normalize_monday_facing_language
 from app.agents.llm import AGENT_MODEL_CONFIG, invoke_structured_output
 from app.agents.schemas import QualInsights, QuantInsights, StrategicSynthesis
 from app.agents.state import WorkflowState, ensure_account
-
-STRATEGIST_SYSTEM_PROMPT = """
-You are a senior Customer Success Manager at monday.com preparing strategic QBR recommendations.
-Combine quantitative and qualitative findings into a synthesis that reads like a real CSM prepared it.
-
-Rules:
-- Every key insight must support either Retention or Expansion. Make that lens explicit.
-- Use monday.com Work OS vocabulary throughout: Boards, Automations, Integrations, Workspaces, Dashboards, Work OS.
-- Connect metrics to business outcomes. Example: low automation adoption -> manual work remains -> weaker Work OS value -> churn risk.
-- Every recommendation must be evidence-grounded and reference specific source metrics or notes.
-- Cross-sell or expansion recommendations must reference concrete monday.com capabilities, features, or plan-level value where appropriate.
-- Factor the customer's preferred communication channel into engagement recommendations.
-- If the source notes mention named external tools or vendors, translate them into monday-first language such as integration workflow needs, cross-functional visibility, or connected development workflows. Do not let external brand names become the headline of the synthesis.
-- Do not invent product capabilities, roadmap promises, discounts, or account history beyond the provided inputs.
-""".strip()
+from app.prompt_templates.strategist import (
+    STRATEGIST_SYSTEM_PROMPT,
+    render_strategist_user_prompt,
+)
 
 
 def generate_strategic_synthesis(
@@ -46,40 +35,23 @@ Weight your analysis and recommendations toward these areas.
 {judge_critique}
 """.strip()
 
-    user_prompt = f"""
-Synthesize the following account data into a strategic QBR view.
-
-Account name: {account.account_name}
-Plan type: {account.plan_type}
-Preferred channel: {account.preferred_channel}
-
-Quantitative insights:
-{quantitative_insights.model_dump_json(indent=2)}
-
-Qualitative insights:
-{qualitative_insights.model_dump_json(indent=2)}
-
-Original source metrics:
-- active_users: {account.active_users}
-- usage_growth_qoq: {account.usage_growth_qoq:.2%}
-- automation_adoption_pct: {account.automation_adoption_pct:.2%}
-- tickets_last_quarter: {account.tickets_last_quarter}
-- avg_response_time: {account.avg_response_time:.1f}
-- nps_score: {account.nps_score:.1f}
-- scat_score: {account.scat_score:.1f}
-- risk_engine_score: {account.risk_engine_score:.2f}
-
-{focus_directive}
-
-{critique_directive}
-
-Provide a concise executive synthesis with:
-- strengths: 2-4 items
-- concerns: 2-4 items
-- recommendations: 2-4 items, each with evidence and grounding_metrics
-- cross_sell_opportunities: 1-3 items
-- data_citations: references back to source fields or intermediate outputs
-""".strip()
+    user_prompt = render_strategist_user_prompt(
+        account_name=account.account_name,
+        plan_type=account.plan_type,
+        preferred_channel=account.preferred_channel,
+        quantitative_insights_json=quantitative_insights.model_dump_json(indent=2),
+        qualitative_insights_json=qualitative_insights.model_dump_json(indent=2),
+        active_users=account.active_users,
+        usage_growth_qoq=f"{account.usage_growth_qoq:.2%}",
+        automation_adoption_pct=f"{account.automation_adoption_pct:.2%}",
+        tickets_last_quarter=account.tickets_last_quarter,
+        avg_response_time=f"{account.avg_response_time:.1f}",
+        nps_score=f"{account.nps_score:.1f}",
+        scat_score=f"{account.scat_score:.1f}",
+        risk_engine_score=f"{account.risk_engine_score:.2f}",
+        focus_directive=focus_directive,
+        critique_directive=critique_directive,
+    )
     synthesis = invoke_structured_output(
         system_prompt=STRATEGIST_SYSTEM_PROMPT,
         user_prompt=user_prompt,

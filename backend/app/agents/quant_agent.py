@@ -3,48 +3,25 @@
 from app.agents.llm import AGENT_MODEL_CONFIG, invoke_structured_output
 from app.agents.schemas import QuantInsights
 from app.agents.state import WorkflowState, ensure_account
-
-QUANT_SYSTEM_PROMPT = """
-You are the Quant Agent for a monday.com Customer Success QBR co-pilot.
-Analyze only the provided structured account metrics and explain them in a monday.com Work OS context.
-
-Metric definitions:
-- scat_score = Success Confidence & Adoption Trend, an internal 0-100 health metric where higher is healthier.
-- automation_adoption_pct = the share of available Automations the customer is actually using. Low adoption means more manual work and weaker Work OS stickiness.
-- risk_engine_score = AI-predicted churn probability from 0 to 1. Scores above 0.6 require proactive retention action.
-
-Instructions:
-- Call out usage_growth_qoq as the primary conversation driver.
-- If automation_adoption_pct is below 30%, flag it as a key risk signal.
-- Tie observations to retention, adoption depth, or expansion readiness.
-- Return concise, evidence-grounded output. Do not invent values.
-""".strip()
+from app.prompt_templates.quant import QUANT_SYSTEM_PROMPT, render_quant_user_prompt
 
 
 def generate_quantitative_insights(account) -> QuantInsights:
     """Generate structured quantitative insights for an account."""
 
-    user_prompt = f"""
-Analyze this customer account's numeric and categorical signals for a QBR.
-
-Account name: {account.account_name}
-Plan type: {account.plan_type}
-Active users: {account.active_users}
-Usage growth QoQ: {account.usage_growth_qoq:.2%}
-Automation adoption: {account.automation_adoption_pct:.2%}
-Tickets last quarter: {account.tickets_last_quarter}
-Average response time (hours): {account.avg_response_time:.1f}
-NPS score: {account.nps_score:.1f}
-Preferred channel: {account.preferred_channel}
-SCAT score: {account.scat_score:.1f}
-Risk engine score: {account.risk_engine_score:.2f}
-
-Provide:
-- health_status: 2-5 words
-- key_metrics: 3-5 bullets as short strings
-- growth_trend: one concise sentence
-- risk_flags: 1-4 short strings
-""".strip()
+    user_prompt = render_quant_user_prompt(
+        account_name=account.account_name,
+        plan_type=account.plan_type,
+        active_users=account.active_users,
+        usage_growth_qoq=f"{account.usage_growth_qoq:.2%}",
+        automation_adoption_pct=f"{account.automation_adoption_pct:.2%}",
+        tickets_last_quarter=account.tickets_last_quarter,
+        avg_response_time=f"{account.avg_response_time:.1f}",
+        nps_score=f"{account.nps_score:.1f}",
+        preferred_channel=account.preferred_channel,
+        scat_score=f"{account.scat_score:.1f}",
+        risk_engine_score=f"{account.risk_engine_score:.2f}",
+    )
     return invoke_structured_output(
         system_prompt=QUANT_SYSTEM_PROMPT,
         user_prompt=user_prompt,

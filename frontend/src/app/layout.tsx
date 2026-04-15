@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 import "./globals.css";
 
@@ -12,17 +13,15 @@ function TopBar() {
     <header className="sticky top-0 z-30 border-b border-[color:var(--color-border-strong)] bg-[color:var(--color-surface-glass)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-4 sm:px-8">
         <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#6b63ff,#4f7cff)] shadow-[0_18px_44px_rgba(91,108,255,0.26)]">
-            <div className="flex items-end gap-1">
-              <span className="block h-3.5 w-2.5 rounded-full bg-[#ff5f7b]" />
-              <span className="block h-5 w-2.5 rounded-full bg-[#ffcb4d]" />
-              <span className="block h-6.5 w-2.5 rounded-full bg-[#22d39a]" />
-            </div>
-          </div>
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-[color:var(--color-text-subtle)]">
-              monday.com PoC
-            </p>
+            <Image
+              src="https://dapulse-res.cloudinary.com/image/upload/f_auto,q_auto/remote_mondaycom_static/img/monday-logo-x2.png"
+              alt="monday.com"
+              width={176}
+              height={36}
+              priority
+              className="h-8 w-auto object-contain"
+            />
             <h1 className="text-lg font-semibold tracking-[-0.03em] text-[color:var(--color-text-main)]">
               QBR Co-Pilot
             </h1>
