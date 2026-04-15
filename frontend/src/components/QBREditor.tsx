@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 
+import { ExportMenu } from "@/components/ExportMenu";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { exportPdf } from "@/lib/api";
 
 type QBREditorProps = {
+  accountName: string;
   draft: string;
   onDraftChange: (nextDraft: string) => void;
   onRefine: (instruction: string) => Promise<void>;
@@ -14,6 +17,7 @@ type QBREditorProps = {
 };
 
 export function QBREditor({
+  accountName,
   draft,
   isRefining,
   onDraftChange,
@@ -22,6 +26,7 @@ export function QBREditor({
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [instruction, setInstruction] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const canRefine = instruction.trim().length > 0 && draft.trim().length > 0 && !isRefining;
   const wordCount = useMemo(() => {
@@ -43,19 +48,22 @@ export function QBREditor({
     }
   }
 
-  async function handleExport() {
+  async function handleExportPdf() {
     try {
-      await navigator.clipboard.writeText(draft);
-      setFeedback("Markdown copied to clipboard.");
-    } catch {
-      setFeedback("Clipboard access failed. Please copy manually.");
+      setIsExportingPdf(true);
+      await exportPdf(draft, accountName);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "PDF export failed.");
+      throw error;
+    } finally {
+      setIsExportingPdf(false);
     }
   }
 
   return (
     <Card
-      eyebrow="Human In The Loop"
-      title="QBR Editor"
+      eyebrow="Final Deliverable"
+      title="QBR Draft"
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -74,12 +82,12 @@ export function QBREditor({
           </Button>
         </div>
       }
-      className="overflow-hidden"
+      className="overflow-visible"
     >
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-[color:var(--color-surface-muted)] px-4 py-3">
           <div className="text-sm text-[color:var(--color-text-subtle)]">
-            Live markdown workspace with preview, edits, and refinement.
+            Editable draft for the CSM to review, polish, and share.
           </div>
           <div className="font-mono text-xs text-[color:var(--color-text-subtle)]">
             {wordCount} words
@@ -104,23 +112,27 @@ export function QBREditor({
             htmlFor="refine-instruction"
             className="mb-3 block text-sm font-semibold text-[color:var(--color-text-main)]"
           >
-            Refine the draft
+            Ask the co-pilot to revise the draft
           </label>
           <div className="flex flex-col gap-3 lg:flex-row">
             <input
               id="refine-instruction"
               value={instruction}
               onChange={(event) => setInstruction(event.target.value)}
-              placeholder='Examples: "Make it more optimistic" or "Shorten the executive summary"'
+              placeholder='Examples: "Make this more executive" or "Lean harder into expansion."'
               className="h-12 flex-1 rounded-full border border-[color:var(--color-border-strong)] bg-white px-4 text-sm text-[color:var(--color-text-main)] outline-none transition placeholder:text-[color:var(--color-text-subtle)] focus:border-[color:var(--color-brand-blue)] focus:ring-4 focus:ring-[color:var(--color-brand-blue)]/12"
             />
             <div className="flex gap-2">
               <Button onClick={handleRefine} disabled={!canRefine}>
                 {isRefining ? "Refining..." : "Refine"}
               </Button>
-              <Button variant="secondary" onClick={handleExport} disabled={!draft.trim()}>
-                Export
-              </Button>
+              <ExportMenu
+                accountName={accountName}
+                draft={draft}
+                onExportPdf={handleExportPdf}
+                isExportingPdf={isExportingPdf}
+                onFeedback={setFeedback}
+              />
             </div>
           </div>
           {feedback ? (

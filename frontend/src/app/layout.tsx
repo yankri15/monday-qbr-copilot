@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "QBR Co-Pilot",
-  description: "monday.com-inspired customer success workspace for drafting QBRs.",
+  description: "monday.com-inspired customer success workspace for preparing QBR drafts.",
 };
 
 function TopBar() {
@@ -12,12 +12,11 @@ function TopBar() {
     <header className="sticky top-0 z-30 border-b border-[color:var(--color-border-strong)] bg-[color:var(--color-surface-glass)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-4 sm:px-8">
         <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--color-brand-blue),var(--color-brand-purple))] shadow-[0_18px_44px_rgba(91,108,255,0.26)]">
-            <div className="grid grid-cols-2 gap-1">
-              <span className="block h-2.5 w-2.5 rounded-full bg-white" />
-              <span className="block h-2.5 w-2.5 rounded-full bg-[color:var(--color-accent-gold)]" />
-              <span className="block h-2.5 w-2.5 rounded-full bg-[color:var(--color-accent-mint)]" />
-              <span className="block h-2.5 w-2.5 rounded-full bg-white/70" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#6b63ff,#4f7cff)] shadow-[0_18px_44px_rgba(91,108,255,0.26)]">
+            <div className="flex items-end gap-1">
+              <span className="block h-3.5 w-2.5 rounded-full bg-[#ff5f7b]" />
+              <span className="block h-5 w-2.5 rounded-full bg-[#ffcb4d]" />
+              <span className="block h-6.5 w-2.5 rounded-full bg-[#22d39a]" />
             </div>
           </div>
           <div>
@@ -32,7 +31,7 @@ function TopBar() {
 
         <div className="hidden items-center gap-3 rounded-full border border-[color:var(--color-border-soft)] bg-white/72 px-4 py-2 text-sm text-[color:var(--color-text-subtle)] shadow-[0_8px_24px_rgba(30,37,66,0.08)] md:flex">
           <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-accent-mint)]" />
-          Human-in-the-loop QBR drafting workspace
+          QBR draft workspace for CSMs
         </div>
       </div>
     </header>

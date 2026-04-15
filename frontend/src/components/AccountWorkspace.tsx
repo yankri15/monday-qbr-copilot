@@ -4,14 +4,19 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { AccountSnapshot } from "@/components/AccountSnapshot";
+import { QBRControls } from "@/components/QBRControls";
 import { QBREditor } from "@/components/QBREditor";
 import { ThoughtProcessPanel } from "@/components/ThoughtProcessPanel";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { fetchAccounts, generateQBR, refineQBR } from "@/lib/api";
 import type {
   Account,
+  AudienceTone,
+  FocusArea,
   GenerateEvent,
+  JudgeVerdict,
   QualInsights,
   QuantInsights,
   StepName,
@@ -20,11 +25,36 @@ import type {
 } from "@/lib/types";
 
 const defaultStepMessages: Record<StepName, string> = {
-  quant_agent: "Waiting to analyze structured account metrics.",
-  qual_agent: "Waiting to extract qualitative themes from notes.",
-  strategist: "Waiting to synthesize the account story.",
-  editor: "Waiting to format the final markdown draft.",
+  quant_agent: "Queued to read the structured account signals.",
+  qual_agent: "Queued to read CRM context and feedback.",
+  strategist: "Queued to shape the recommendation angle.",
+  csm_judge: "Queued to review the draft strategy against CSM standards.",
+  editor: "Queued to assemble the final QBR draft.",
 };
+
+function getPrimaryMotion(account: Account) {
+  if (account.risk_engine_score >= 0.45 || account.usage_growth_qoq < 0) {
+    return {
+      label: "Retention",
+      tone: "danger" as const,
+      description: "Protect adoption and remove friction before the next review.",
+    };
+  }
+
+  if (account.automation_adoption_pct < 0.35) {
+    return {
+      label: "Adoption",
+      tone: "warning" as const,
+      description: "Expand usage by moving more workflows into Automations.",
+    };
+  }
+
+  return {
+    label: "Expansion",
+    tone: "success" as const,
+    description: "Use healthy momentum to widen the account story.",
+  };
+}
 
 function createSteps(): Array<{
   name: StepName;
@@ -35,25 +65,31 @@ function createSteps(): Array<{
   return [
     {
       name: "quant_agent",
-      label: "Quant Agent",
+      label: "Data Read",
       message: defaultStepMessages.quant_agent,
       status: "idle",
     },
     {
       name: "qual_agent",
-      label: "Qual Agent",
+      label: "Context Read",
       message: defaultStepMessages.qual_agent,
       status: "idle",
     },
     {
       name: "strategist",
-      label: "Strategist",
+      label: "Recommendation",
       message: defaultStepMessages.strategist,
       status: "idle",
     },
     {
+      name: "csm_judge",
+      label: "CSM Review",
+      message: defaultStepMessages.csm_judge,
+      status: "idle",
+    },
+    {
       name: "editor",
-      label: "Editor",
+      label: "Draft Builder",
       message: defaultStepMessages.editor,
       status: "idle",
     },
@@ -71,6 +107,9 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
   const [quantitativeInsights, setQuantitativeInsights] = useState<QuantInsights>();
   const [qualitativeInsights, setQualitativeInsights] = useState<QualInsights>();
   const [strategicSynthesis, setStrategicSynthesis] = useState<StrategicSynthesis>();
+  const [judgeVerdict, setJudgeVerdict] = useState<JudgeVerdict>();
+  const [focusAreas, setFocusAreas] = useState<FocusArea[]>([]);
+  const [tone, setTone] = useState<AudienceTone>("executive");
 
   useEffect(() => {
     let active = true;
@@ -113,19 +152,57 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
     };
   }, [accountName]);
 
+  useEffect(() => {
+    setFocusAreas([]);
+    setTone("executive");
+  }, [accountName]);
+
   const headerCopy = useMemo(() => {
     if (!account) {
       return {
         title: accountName,
-        subtitle: "Load the account snapshot, then draft and refine the QBR in one workspace.",
+        subtitle: "Review the account brief, generate the draft, then refine it in one place.",
       };
     }
 
     return {
       title: account.account_name,
-      subtitle: `Prepare the next ${account.plan_type.toLowerCase()} QBR with live agent reasoning, editable markdown, and a refinement loop.`,
+      subtitle: `Prepare the next ${account.plan_type.toLowerCase()} QBR draft with clear account context, visible co-pilot support, and final human review.`,
     };
   }, [account, accountName]);
+
+  const workspaceSummary = useMemo(() => {
+    if (!account) {
+      return [];
+    }
+
+    const motion = getPrimaryMotion(account);
+    const topSignal =
+      account.usage_growth_qoq < 0
+        ? `${Math.round(account.usage_growth_qoq * 100)}% usage decline needs attention`
+        : `${Math.round(account.usage_growth_qoq * 100)}% usage growth can support the story`;
+
+    return [
+      {
+        label: "Primary motion",
+        value: motion.label,
+        supporting: motion.description,
+        tone: motion.tone,
+      },
+      {
+        label: "Top signal",
+        value: topSignal,
+        supporting: `${Math.round(account.automation_adoption_pct * 100)}% automation adoption`,
+        tone: "brand" as const,
+      },
+      {
+        label: "Preferred delivery",
+        value: account.preferred_channel,
+        supporting: "Use this channel for follow-up and next steps.",
+        tone: "neutral" as const,
+      },
+    ];
+  }, [account]);
 
   function applyEvent(event: GenerateEvent) {
     if (event.type === "STEP_STARTED") {
@@ -163,6 +240,9 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
         if (patch.path === "/strategic_synthesis") {
           setStrategicSynthesis(patch.value as StrategicSynthesis);
         }
+        if (patch.path === "/judge_verdict") {
+          setJudgeVerdict(patch.value as JudgeVerdict);
+        }
       }
       return;
     }
@@ -189,11 +269,19 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
     setQuantitativeInsights(undefined);
     setQualitativeInsights(undefined);
     setStrategicSynthesis(undefined);
+    setJudgeVerdict(undefined);
 
     try {
-      await generateQBR(account.account_name, {
+      await generateQBR(
+        {
+          account_name: account.account_name,
+          focus_areas: focusAreas,
+          tone,
+        },
+        {
         onEvent: applyEvent,
-      });
+        },
+      );
     } catch (generationError) {
       setError(
         generationError instanceof Error
@@ -253,6 +341,9 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
             <span aria-hidden="true">←</span>
             Back to accounts
           </Link>
+          {account.account_source === "uploaded" ? (
+            <Badge tone="brand">Uploaded account context</Badge>
+          ) : null}
           <h1 className="text-4xl font-semibold tracking-[-0.06em] text-[color:var(--color-text-main)]">
             {headerCopy.title}
           </h1>
@@ -262,9 +353,36 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
         </div>
 
         <Button onClick={handleGenerate} disabled={isGenerating} className="min-w-[170px]">
-          {isGenerating ? "Drafting..." : "Draft QBR"}
+          {isGenerating ? "Building draft..." : "Generate QBR draft"}
         </Button>
       </div>
+
+      {workspaceSummary.length ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {workspaceSummary.map((item) => (
+            <Card key={item.label} className="bg-white/70">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-text-subtle)]">
+                    {item.label}
+                  </p>
+                  <Badge tone={item.tone}>{item.value}</Badge>
+                </div>
+                <p className="text-sm leading-6 text-[color:var(--color-text-subtle)]">
+                  {item.supporting}
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
+      <QBRControls
+        focusAreas={focusAreas}
+        tone={tone}
+        onFocusAreasChange={setFocusAreas}
+        onToneChange={setTone}
+      />
 
       {error ? (
         <Card className="border-[color:var(--color-danger)]/18 bg-[color:var(--color-danger)]/7">
@@ -280,8 +398,10 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
           quantitativeInsights={quantitativeInsights}
           qualitativeInsights={qualitativeInsights}
           strategicSynthesis={strategicSynthesis}
+          judgeVerdict={judgeVerdict}
         />
         <QBREditor
+          accountName={account.account_name}
           draft={draft}
           onDraftChange={setDraft}
           onRefine={handleRefine}

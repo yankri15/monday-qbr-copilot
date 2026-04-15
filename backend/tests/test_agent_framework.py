@@ -11,7 +11,13 @@ from app.agents.graph import build_qbr_langgraph_agent, run_qbr_pipeline
 from app.agents.qual_agent import run_qual_agent
 from app.agents.quant_agent import run_quant_agent
 from app.agents.refiner import refine_draft
-from app.agents.schemas import QualInsights, QuantInsights, Recommendation, StrategicSynthesis
+from app.agents.schemas import (
+    JudgeVerdict,
+    QualInsights,
+    QuantInsights,
+    Recommendation,
+    StrategicSynthesis,
+)
 from app.agents.strategist import run_strategist
 from app.data.loader import get_account_by_name
 
@@ -39,10 +45,10 @@ def _sample_qual() -> QualInsights:
         ],
         key_quotes=[
             "Finance & Ops teams adopted monday for automation.",
-            "Interested in deeper analytics and Jira sync.",
+            "Interested in deeper analytics and workflow sync.",
         ],
         action_signals=[
-            "Follow up on Jira integration needs.",
+            "Follow up on integration workflow needs.",
             "Position advanced analytics value.",
         ],
     )
@@ -61,7 +67,7 @@ def _sample_strategy() -> StrategicSynthesis:
         recommendations=[
             Recommendation(
                 recommendation="Schedule an integration roadmap review.",
-                evidence="The customer explicitly asked about Jira integration while adoption is rising.",
+                evidence="The customer explicitly asked for stronger development workflow connectivity while adoption is rising.",
                 grounding_metrics=["automation_adoption_pct", "crm_notes", "usage_growth_qoq"],
             )
         ],
@@ -73,6 +79,34 @@ def _sample_strategy() -> StrategicSynthesis:
             "automation_adoption_pct=0.78",
             "crm_notes",
         ],
+    )
+
+
+def _passing_verdict() -> JudgeVerdict:
+    return JudgeVerdict(
+        passed=True,
+        critique="Approved",
+        scores={
+            "retention_focus": 8,
+            "expansion_focus": 8,
+            "actionability": 8,
+            "evidence_grounding": 9,
+            "monday_language": 8,
+        },
+    )
+
+
+def _failing_verdict() -> JudgeVerdict:
+    return JudgeVerdict(
+        passed=False,
+        critique="Tie recommendations more directly to retention or expansion and use stronger monday.com vocabulary.",
+        scores={
+            "retention_focus": 5,
+            "expansion_focus": 5,
+            "actionability": 7,
+            "evidence_grounding": 8,
+            "monday_language": 5,
+        },
     )
 
 
@@ -128,9 +162,25 @@ class AgentFrameworkTests(unittest.TestCase):
 
         self.assertIn("## Executive Summary", result["final_draft"])
 
+    @patch(
+        "app.agents.editor.invoke_text_output",
+        return_value="# Altura Systems QBR Draft\n## Recommendations\nPrioritize Jira integration.",
+    )
+    def test_editor_normalizes_external_vendor_language(self, _mock_invoke) -> None:
+        draft = run_editor(
+            {
+                "account": self.account,
+                "strategic_synthesis": _sample_strategy().model_dump(),
+            }
+        )["final_draft"]
+
+        self.assertNotIn("Jira", draft)
+        self.assertIn("monday.com integration workflow", draft)
+
     @patch("app.agents.quant_agent.generate_quantitative_insights", return_value=_sample_quant())
     @patch("app.agents.qual_agent.generate_qualitative_insights", return_value=_sample_qual())
     @patch("app.agents.strategist.generate_strategic_synthesis", return_value=_sample_strategy())
+    @patch("app.agents.csm_judge.generate_judge_verdict", return_value=_passing_verdict())
     @patch(
         "app.agents.editor.generate_final_draft",
         return_value=(
@@ -138,13 +188,14 @@ class AgentFrameworkTests(unittest.TestCase):
             "## Executive Summary\nHealthy momentum.\n"
             "## Key Metrics\n- 420 active users\n"
             "## Health Assessment\nExpansion-ready.\n"
-            "## Recommendations\n- Review Jira integration roadmap.\n"
+            "## Recommendations\n- Review integration workflow roadmap.\n"
             "## Next Steps\n- Book follow-up."
         ),
     )
     def test_run_qbr_pipeline_returns_expected_state(
         self,
         _mock_editor,
+        _mock_judge,
         _mock_strategy,
         _mock_qual,
         _mock_quant,
@@ -154,11 +205,13 @@ class AgentFrameworkTests(unittest.TestCase):
         QuantInsights.model_validate(result["quantitative_insights"])
         QualInsights.model_validate(result["qualitative_insights"])
         StrategicSynthesis.model_validate(result["strategic_synthesis"])
+        JudgeVerdict.model_validate(result["judge_verdict"])
         self.assertIn("## Recommendations", result["final_draft"])
 
     @patch("app.agents.quant_agent.generate_quantitative_insights", return_value=_sample_quant())
     @patch("app.agents.qual_agent.generate_qualitative_insights", return_value=_sample_qual())
     @patch("app.agents.strategist.generate_strategic_synthesis", return_value=_sample_strategy())
+    @patch("app.agents.csm_judge.generate_judge_verdict", return_value=_passing_verdict())
     @patch(
         "app.agents.editor.generate_final_draft",
         return_value=(
@@ -166,13 +219,14 @@ class AgentFrameworkTests(unittest.TestCase):
             "## Executive Summary\nHealthy momentum.\n"
             "## Key Metrics\n- 420 active users\n"
             "## Health Assessment\nExpansion-ready.\n"
-            "## Recommendations\n- Review Jira integration roadmap.\n"
+            "## Recommendations\n- Review integration workflow roadmap.\n"
             "## Next Steps\n- Book follow-up."
         ),
     )
     def test_ag_ui_agent_emits_step_events(
         self,
         _mock_editor,
+        _mock_judge,
         _mock_strategy,
         _mock_qual,
         _mock_quant,
@@ -199,8 +253,44 @@ class AgentFrameworkTests(unittest.TestCase):
 
         event_types = asyncio.run(collect_event_types())
 
-        self.assertEqual(event_types.count("STEP_STARTED"), 4)
-        self.assertEqual(event_types.count("STEP_FINISHED"), 4)
+        self.assertEqual(event_types.count("STEP_STARTED"), 5)
+        self.assertEqual(event_types.count("STEP_FINISHED"), 5)
+
+    @patch("app.agents.quant_agent.generate_quantitative_insights", return_value=_sample_quant())
+    @patch("app.agents.qual_agent.generate_qualitative_insights", return_value=_sample_qual())
+    @patch(
+        "app.agents.strategist.generate_strategic_synthesis",
+        side_effect=[_sample_strategy(), _sample_strategy()],
+    )
+    @patch(
+        "app.agents.csm_judge.generate_judge_verdict",
+        side_effect=[_failing_verdict(), _passing_verdict()],
+    )
+    @patch(
+        "app.agents.editor.generate_final_draft",
+        return_value=(
+            "# Altura Systems QBR Draft\n"
+            "## Executive Summary\nHealthy momentum.\n"
+            "## Key Metrics\n- 420 active users\n"
+            "## Health Assessment\nExpansion-ready.\n"
+            "## Recommendations\n- Review integration workflow roadmap.\n"
+            "## Next Steps\n- Book follow-up."
+        ),
+    )
+    def test_judge_retry_path_reruns_strategist_once(
+        self,
+        _mock_editor,
+        mock_judge,
+        mock_strategy,
+        _mock_qual,
+        _mock_quant,
+    ) -> None:
+        result = run_qbr_pipeline(self.account)
+
+        self.assertEqual(mock_strategy.call_count, 2)
+        self.assertEqual(mock_judge.call_count, 2)
+        self.assertTrue(result["judge_verdict"]["passed"])
+        self.assertEqual(result["judge_retry_count"], 2)
 
     @patch(
         "app.agents.refiner.invoke_text_output",

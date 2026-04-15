@@ -14,6 +14,9 @@ dependencies = [
     "python-dotenv",
     "ag-ui-protocol",
     "ag-ui-langgraph",
+    "markdown>=3.10.2",
+    "weasyprint>=68.1",
+    "python-multipart>=0.0.26",
 ]
 
 [tool.hatch.build.targets.wheel]

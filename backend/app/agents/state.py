@@ -12,6 +12,11 @@ class WorkflowState(TypedDict, total=False):
     quantitative_insights: dict[str, Any]
     qualitative_insights: dict[str, Any]
     strategic_synthesis: dict[str, Any]
+    judge_verdict: dict[str, Any]
+    judge_retry_count: int
+    judge_critique: str
+    focus_areas: list[str]
+    tone: str
     final_draft: str
 
 

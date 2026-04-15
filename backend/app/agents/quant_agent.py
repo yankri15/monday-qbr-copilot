@@ -1,14 +1,23 @@
 """Quantitative analysis node for the QBR workflow."""
 
-from app.agents.llm import invoke_structured_output
+from app.agents.llm import AGENT_MODEL_CONFIG, invoke_structured_output
 from app.agents.schemas import QuantInsights
 from app.agents.state import WorkflowState, ensure_account
 
 QUANT_SYSTEM_PROMPT = """
-You are the Quant Agent for a customer-success QBR copilot.
-Analyze only the provided structured account metrics.
-Return concise, evidence-grounded output. Do not invent values.
-Classify health based on growth, adoption, support burden, satisfaction, and churn risk.
+You are the Quant Agent for a monday.com Customer Success QBR co-pilot.
+Analyze only the provided structured account metrics and explain them in a monday.com Work OS context.
+
+Metric definitions:
+- scat_score = Success Confidence & Adoption Trend, an internal 0-100 health metric where higher is healthier.
+- automation_adoption_pct = the share of available Automations the customer is actually using. Low adoption means more manual work and weaker Work OS stickiness.
+- risk_engine_score = AI-predicted churn probability from 0 to 1. Scores above 0.6 require proactive retention action.
+
+Instructions:
+- Call out usage_growth_qoq as the primary conversation driver.
+- If automation_adoption_pct is below 30%, flag it as a key risk signal.
+- Tie observations to retention, adoption depth, or expansion readiness.
+- Return concise, evidence-grounded output. Do not invent values.
 """.strip()
 
 
@@ -40,6 +49,7 @@ Provide:
         system_prompt=QUANT_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         schema=QuantInsights,
+        model=AGENT_MODEL_CONFIG["extractor"],
     )
 
 

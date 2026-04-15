@@ -34,11 +34,18 @@ def _get_model_name() -> str:
     return os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
 
-def build_chat_model(*, temperature: float = 0.0) -> ChatOpenAI:
+_load_environment()
+AGENT_MODEL_CONFIG = {
+    "extractor": os.getenv("OPENAI_MODEL_EXTRACTOR", "gpt-4.1-mini"),
+    "thinker": os.getenv("OPENAI_MODEL_THINKER", "gpt-4.1"),
+}
+
+
+def build_chat_model(*, temperature: float = 0.0, model: str | None = None) -> ChatOpenAI:
     """Create a chat model client for text generation."""
 
     _ensure_api_key_present()
-    return ChatOpenAI(model=_get_model_name(), temperature=temperature)
+    return ChatOpenAI(model=model or _get_model_name(), temperature=temperature)
 
 
 def invoke_structured_output(
@@ -47,10 +54,11 @@ def invoke_structured_output(
     user_prompt: str,
     schema: type[SchemaT],
     temperature: float = 0.0,
+    model: str | None = None,
 ) -> SchemaT:
     """Invoke the model and validate its structured response."""
 
-    chain = build_chat_model(temperature=temperature).with_structured_output(
+    chain = build_chat_model(temperature=temperature, model=model).with_structured_output(
         schema,
         method="json_schema",
         strict=True,
@@ -71,10 +79,11 @@ def invoke_text_output(
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.2,
+    model: str | None = None,
 ) -> str:
     """Invoke the model and normalize the returned text content."""
 
-    response = build_chat_model(temperature=temperature).invoke(
+    response = build_chat_model(temperature=temperature, model=model).invoke(
         [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),

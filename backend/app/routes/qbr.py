@@ -21,6 +21,7 @@ from ag_ui.core import (
 
 from app.agents.graph import build_qbr_langgraph_agent
 from app.agents.refiner import refine_draft
+from app.data.upload_store import get_uploaded_account_by_name
 from app.models.customer import CustomerAccount
 from app.models.api import GenerateQBRRequest, HealthResponse, RefineQBRRequest, RefineQBRResponse
 from app.data.loader import get_account_by_name
@@ -31,12 +32,14 @@ STREAMED_STATE_KEYS = (
     "quantitative_insights",
     "qualitative_insights",
     "strategic_synthesis",
+    "judge_verdict",
 )
 
 STEP_MESSAGES = {
     "quant_agent": "Analyzing usage metrics...",
     "qual_agent": "Extracting sentiment from CRM notes...",
     "strategist": "Synthesizing strategic recommendations...",
+    "csm_judge": "Evaluating QBR quality against CSM acceptance criteria...",
     "editor": "Formatting the final QBR draft...",
 }
 
@@ -74,12 +77,20 @@ async def _generate_qbr_stream(
     *,
     request: Request,
     account: CustomerAccount,
+    focus_areas: list[str],
+    tone: str,
 ) -> AsyncGenerator[str, None]:
     agent = build_qbr_langgraph_agent()
     run_input = RunAgentInput(
         threadId=str(uuid4()),
         runId=str(uuid4()),
-        state={"account": account.model_dump()},
+        state={
+            "account": account.model_dump(),
+            "focus_areas": focus_areas,
+            "tone": tone,
+            "judge_retry_count": 0,
+            "judge_critique": "",
+        },
         messages=[],
         tools=[],
         context=[],
@@ -165,12 +176,17 @@ async def generate_qbr(
     account_name = payload.account_name.strip()
     if not account_name:
         raise HTTPException(status_code=422, detail="account_name must not be empty")
-    account = get_account_by_name(account_name)
+    account = get_uploaded_account_by_name(account_name) or get_account_by_name(account_name)
     if account is None:
         raise HTTPException(status_code=404, detail=f"Unknown account: {account_name}")
 
     return StreamingResponse(
-        _generate_qbr_stream(request=request, account=account),
+        _generate_qbr_stream(
+            request=request,
+            account=account,
+            focus_areas=payload.focus_areas,
+            tone=payload.tone,
+        ),
         media_type="text/event-stream",
     )
 

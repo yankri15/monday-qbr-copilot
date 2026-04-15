@@ -54,3 +54,31 @@ class StrategicSynthesis(BaseModel):
     data_citations: list[str] = Field(
         description="References back to the source fields and intermediate insights"
     )
+
+
+class JudgeScores(BaseModel):
+    """Rubric scores for the CSM judge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    retention_focus: int = Field(description="Score for retention framing from 1 to 10")
+    expansion_focus: int = Field(description="Score for expansion framing from 1 to 10")
+    actionability: int = Field(description="Score for concrete next steps from 1 to 10")
+    evidence_grounding: int = Field(description="Score for evidence grounding from 1 to 10")
+    monday_language: int = Field(description="Score for monday.com product language from 1 to 10")
+
+
+class JudgeVerdict(BaseModel):
+    """Structured review output from the CSM quality gate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    passed: bool = Field(
+        description="Whether the synthesis meets the CSM acceptance criteria"
+    )
+    critique: str = Field(
+        description="Specific feedback if failed; 'Approved' if passed"
+    )
+    scores: JudgeScores = Field(
+        description="Rubric scores across the five mandatory quality criteria"
+    )

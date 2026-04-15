@@ -1,6 +1,13 @@
 export type PlanType = "Enterprise" | "Pro" | "Basic";
 export type PreferredChannel = "Email" | "Phone" | "Chat" | "In-app chat";
-export type StepName = "quant_agent" | "qual_agent" | "strategist" | "editor";
+export type FocusArea = "upsell_opportunity" | "churn_risk" | "automation_adoption";
+export type AudienceTone = "executive" | "team_lead" | "technical";
+export type StepName =
+  | "quant_agent"
+  | "qual_agent"
+  | "strategist"
+  | "csm_judge"
+  | "editor";
 export type StepStatus = "idle" | "running" | "completed";
 
 export type Account = {
@@ -17,6 +24,8 @@ export type Account = {
   risk_engine_score: number;
   crm_notes: string;
   feedback_summary: string;
+  account_source: "sample" | "uploaded";
+  upload_id: string | null;
 };
 
 export type QuantInsights = {
@@ -52,11 +61,25 @@ export type WorkflowInsights = {
   quantitative_insights?: QuantInsights;
   qualitative_insights?: QualInsights;
   strategic_synthesis?: StrategicSynthesis;
+  judge_verdict?: JudgeVerdict;
   final_draft?: string;
 };
 
 export type GenerateQbrPayload = {
   account_name: string;
+  focus_areas: FocusArea[];
+  tone: AudienceTone;
+};
+
+export type UploadDataResponse = {
+  upload_id: string;
+  accounts: Account[];
+};
+
+export type JudgeVerdict = {
+  passed: boolean;
+  critique: string;
+  scores: Record<string, number>;
 };
 
 export type GenerateEvent =

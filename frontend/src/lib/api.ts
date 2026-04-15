@@ -1,4 +1,11 @@
-import type { Account, GenerateEvent, GenerateQbrHandlers } from "@/lib/types";
+import type {
+  Account,
+  GenerateEvent,
+  GenerateQbrHandlers,
+  GenerateQbrPayload,
+  UploadDataResponse,
+} from "@/lib/types";
+import { downloadBlob } from "@/lib/export";
 
 function getApiBaseUrl() {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -53,6 +60,22 @@ export async function fetchAccounts() {
   return (await response.json()) as Account[];
 }
 
+export async function uploadAccountsFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${getApiBaseUrl()}/api/upload-data`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseJsonError(response));
+  }
+
+  return (await response.json()) as UploadDataResponse;
+}
+
 export async function refineQBR(draft: string, instructions: string) {
   const response = await fetch(`${getApiBaseUrl()}/api/refine-qbr`, {
     method: "POST",
@@ -74,7 +97,7 @@ export async function refineQBR(draft: string, instructions: string) {
 }
 
 export async function generateQBR(
-  accountName: string,
+  payload: GenerateQbrPayload,
   handlers: GenerateQbrHandlers,
 ) {
   const response = await fetch(`${getApiBaseUrl()}/api/generate-qbr`, {
@@ -83,9 +106,7 @@ export async function generateQBR(
       "Content-Type": "application/json",
       Accept: "text/event-stream",
     },
-    body: JSON.stringify({
-      account_name: accountName,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -132,4 +153,24 @@ export async function generateQBR(
       break;
     }
   }
+}
+
+export async function exportPdf(markdownContent: string, accountName: string) {
+  const response = await fetch(`${getApiBaseUrl()}/api/export-pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      markdown_content: markdownContent,
+      account_name: accountName,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseJsonError(response));
+  }
+
+  const blob = await response.blob();
+  downloadBlob(blob, accountName, "pdf");
 }
