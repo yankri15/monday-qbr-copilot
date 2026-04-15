@@ -26,6 +26,8 @@ const toneCopy: Record<AccountCardTone, string> = {
   danger: "High risk",
 };
 
+const skeletonCardIndices = Array.from({ length: 5 }, (_, index) => index);
+
 export function AccountDashboard() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -138,68 +140,66 @@ export function AccountDashboard() {
         ) : null}
 
         <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
-          {(isLoading ? Array.from({ length: 5 }) : accounts).map((account, index) => {
-            if (isLoading || !account) {
-              return (
+          {isLoading
+            ? skeletonCardIndices.map((index) => (
                 <div
                   key={`skeleton-${index}`}
                   className="h-[250px] animate-pulse rounded-[28px] border border-[color:var(--color-border-soft)] bg-white/75"
                 />
-              );
-            }
-
-            const tone = riskTone(account.risk_engine_score);
-            return (
-              <button
-                key={account.account_name}
-                type="button"
-                onClick={() => router.push(`/account/${accountNameToSlug(account.account_name)}`)}
-                className="group text-left"
-              >
-                <Card className="h-full transition duration-200 group-hover:-translate-y-1 group-hover:border-[color:var(--color-brand-blue)]/25 group-hover:shadow-[0_28px_70px_rgba(34,45,84,0.12)]">
-                  <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--color-text-subtle)]">
-                          {account.plan_type}
-                        </p>
-                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[color:var(--color-text-main)]">
-                          {account.account_name}
-                        </h3>
-                      </div>
-                      <Badge tone={tone}>{toneCopy[tone]}</Badge>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {[
-                        ["Active users", account.active_users.toString()],
-                        ["NPS", account.nps_score.toFixed(1)],
-                        ["SCAT", account.scat_score.toFixed(0)],
-                        ["Risk", `${Math.round(account.risk_engine_score * 100)}%`],
-                      ].map(([label, value]) => (
-                        <div
-                          key={label}
-                          className="rounded-[20px] bg-[color:var(--color-surface-muted)] px-4 py-3"
-                        >
-                          <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--color-text-subtle)]">
-                            {label}
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-[color:var(--color-text-main)]">
-                            {value}
-                          </p>
+              ))
+            : accounts.map((account) => {
+                const tone = riskTone(account.risk_engine_score);
+                return (
+                  <button
+                    key={account.account_name}
+                    type="button"
+                    onClick={() => router.push(`/account/${accountNameToSlug(account.account_name)}`)}
+                    className="group text-left"
+                  >
+                    <Card className="h-full transition duration-200 group-hover:-translate-y-1 group-hover:border-[color:var(--color-brand-blue)]/25 group-hover:shadow-[0_28px_70px_rgba(34,45,84,0.12)]">
+                      <div className="space-y-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--color-text-subtle)]">
+                              {account.plan_type}
+                            </p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[color:var(--color-text-main)]">
+                              {account.account_name}
+                            </h3>
+                          </div>
+                          <Badge tone={tone}>{toneCopy[tone]}</Badge>
                         </div>
-                      ))}
-                    </div>
 
-                    <div className="flex items-center justify-between text-sm text-[color:var(--color-text-subtle)]">
-                      <span>Usage growth {Math.round(account.usage_growth_qoq * 100)}%</span>
-                      <span>{account.preferred_channel}</span>
-                    </div>
-                  </div>
-                </Card>
-              </button>
-            );
-          })}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {[
+                            ["Active users", account.active_users.toString()],
+                            ["NPS", account.nps_score.toFixed(1)],
+                            ["SCAT", account.scat_score.toFixed(0)],
+                            ["Risk", `${Math.round(account.risk_engine_score * 100)}%`],
+                          ].map(([label, value]) => (
+                            <div
+                              key={label}
+                              className="rounded-[20px] bg-[color:var(--color-surface-muted)] px-4 py-3"
+                            >
+                              <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--color-text-subtle)]">
+                                {label}
+                              </p>
+                              <p className="mt-2 text-lg font-semibold text-[color:var(--color-text-main)]">
+                                {value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm text-[color:var(--color-text-subtle)]">
+                          <span>Usage growth {Math.round(account.usage_growth_qoq * 100)}%</span>
+                          <span>{account.preferred_channel}</span>
+                        </div>
+                      </div>
+                    </Card>
+                  </button>
+                );
+              })}
         </div>
       </section>
     </div>
