@@ -271,7 +271,7 @@ async def _generate_qbr_stream_vercel_fallback(
 def health_check() -> HealthResponse:
     """Backend health endpoint."""
 
-    return HealthResponse(status="ok")
+    return HealthResponse(status="ok", version="fix-progressive-streaming")
 
 
 def _resolve_requested_account(payload: GenerateQBRRequest) -> CustomerAccount | None:
