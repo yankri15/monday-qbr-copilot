@@ -1,7 +1,5 @@
 """QBR generation and refinement endpoints."""
 
-import time
-import traceback
 from typing import Any, AsyncGenerator
 from uuid import uuid4
 
@@ -28,8 +26,6 @@ from app.models.customer import CustomerAccount
 from app.models.api import GenerateQBRRequest, HealthResponse, RefineQBRRequest, RefineQBRResponse
 from app.data.loader import get_account_by_name
 
-LOG_PATH = "/tmp/debug-8ee21d.log"
-
 router = APIRouter(tags=["qbr"])
 
 STREAMED_STATE_KEYS = (
@@ -54,19 +50,6 @@ PASSTHROUGH_EVENT_TYPES = {
     EventType.RUN_FINISHED,
     EventType.RUN_ERROR,
 }
-
-
-def _dbg(msg: str, **kwargs: Any) -> None:
-    """Append an NDJSON debug line to the log file and print for Vercel logs."""
-    import json
-    entry = {"sessionId": "8ee21d", "location": "qbr.py", "message": msg, "data": kwargs, "timestamp": int(time.time() * 1000)}
-    line = json.dumps(entry)
-    try:
-        with open(LOG_PATH, "a") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
-    print(f"[debug-8ee21d] {msg} {kwargs}", flush=True)
 
 
 def _encode_sse(event: BaseEvent) -> str:
@@ -99,11 +82,6 @@ async def _generate_qbr_stream(
 ) -> AsyncGenerator[str, None]:
     """Stream AG-UI events from the LangGraphAgent."""
 
-    # #region agent log
-    _t0 = time.monotonic()
-    _dbg("AGUI_STREAM_START", account=account.account_name, hypothesisId="H1-H4")
-    # #endregion
-
     agent = build_qbr_langgraph_agent()
     run_input = RunAgentInput(
         threadId=str(uuid4()),
@@ -125,26 +103,10 @@ async def _generate_qbr_stream(
     emitted_final_draft = False
     final_message_id = f"draft-{uuid4()}"
 
-    # #region agent log
-    _event_count = 0
-    _dbg("AGUI_AGENT_RUN_STARTING", elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H2")
-    # #endregion
-
     try:
         async for event in agent.run(run_input):
             if await request.is_disconnected():
-                # #region agent log
-                _dbg("CLIENT_DISCONNECTED", elapsed=f"{time.monotonic()-_t0:.3f}s")
-                # #endregion
                 break
-
-            # #region agent log
-            _event_count += 1
-            event_type_str = event.type.value if hasattr(event, "type") and hasattr(event.type, "value") else str(type(event).__name__)
-            step_name_str = getattr(event, "step_name", None)
-            if _event_count <= 30 or isinstance(event, (StepStartedEvent, StateSnapshotEvent)):
-                _dbg("AGUI_EVENT", n=_event_count, type=event_type_str, step=step_name_str, elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
-            # #endregion
 
             if isinstance(event, StepStartedEvent):
                 step_message = STEP_MESSAGES.get(event.step_name)
@@ -157,9 +119,6 @@ async def _generate_qbr_stream(
                 current_snapshot = dict(event.snapshot)
                 delta = _build_state_delta(previous_snapshot, current_snapshot)
                 if delta:
-                    # #region agent log
-                    _dbg("AGUI_STATE_DELTA", keys=[d["path"] for d in delta], elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
-                    # #endregion
                     yield _encode_sse(StateDeltaEvent(delta=delta))
 
                 final_draft = current_snapshot.get("final_draft")
@@ -197,25 +156,17 @@ async def _generate_qbr_stream(
 
     except HTTPException:
         raise
-    except Exception as exc:
-        # #region agent log
-        _dbg("AGUI_EXCEPTION", err=repr(exc), elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H2")
-        traceback.print_exc()
-        # #endregion
+    except Exception:
         yield _encode_sse(
             RunErrorEvent(message="Failed to generate QBR. Please try again.")
         )
-
-    # #region agent log
-    _dbg("AGUI_STREAM_DONE", total_events=_event_count, elapsed=f"{time.monotonic()-_t0:.3f}s", hypothesisId="H1")
-    # #endregion
 
 
 @router.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Backend health endpoint."""
 
-    return HealthResponse(status="ok", version="agui-restore-v1")
+    return HealthResponse(status="ok")
 
 
 def _resolve_requested_account(payload: GenerateQBRRequest) -> CustomerAccount | None:

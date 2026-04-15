@@ -68,7 +68,6 @@ class HealthResponse(BaseModel):
     """Health-check response."""
 
     status: str
-    version: str | None = None
 
 
 class UploadDataResponse(BaseModel):

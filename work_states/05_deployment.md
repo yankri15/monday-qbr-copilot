@@ -1,3 +1,4 @@
+
 # Deployment (Vercel)
 
 > Configure Vercel deployment for the monorepo, wire environment variables, and perform final integration testing.
@@ -78,7 +79,7 @@ Deploy the complete QBR Co-Pilot application to Vercel so it is publicly accessi
 - [DECISION] 2026-04-15: Force frontend production builds through Webpack by setting `npm run build` to `next build --webpack`. — Rationale: the current environment consistently hits a Turbopack CSS-worker panic, while the Webpack production build completes successfully.
 - [DECISION] 2026-04-15: Pass the selected account payload in the QBR generation request so uploaded accounts remain usable in stateless/serverless environments. — Rationale: the current upload store is in-memory and therefore not reliable across separate serverless invocations during deployment.
 - [DECISION] 2026-04-15: Complete the POC deployment through a Vercel CLI-linked project rather than requiring GitHub integration first. — Rationale: the recruiter demo needs a stable public URL quickly, and GitHub-triggered auto-deploys can be added later without changing the runtime architecture.
-- [DECISION] 2026-04-15: Route deployed QBR generation through a deployment-safe manual SSE adapter and normalize the frontend account payload before validation. — Rationale: Vercel production requests include UI-only account metadata (`account_source`, `upload_id`), and the manual SSE path is the most reliable way to preserve the co-pilot event stream shape on the serverless deployment.
+- [DECISION] 2026-04-15: Use the original AG-UI protocol streaming (`LangGraphAgent.run()` → `astream_events()`) on Vercel instead of a manual SSE fallback. Added anti-buffering headers (`Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`, `Connection: keep-alive`) to prevent Vercel's proxy from batching the SSE response. — Rationale: the manual fallback ran the pipeline synchronously, causing all step events to arrive in a single burst. The AG-UI agent's `astream_events()` runs sync nodes in a thread pool, enabling progressive event delivery.
 
 ---
 
@@ -106,4 +107,5 @@ Deploy the complete QBR Co-Pilot application to Vercel so it is publicly accessi
 - [PROGRESS] 2026-04-15: Fixed production `generate-qbr` failures by selecting the deployment-safe stream path based on deployed host signals and stripping UI-only fields from the client-sent account payload before validating it into `CustomerAccount`.
 - [VERIFY] 2026-04-15: Verified the live alias end to end: `GET /api/health` returns `{"status":"ok"}`, `GET /api/accounts` returns all 5 sample accounts, `POST /api/refine-qbr` returns a refined draft, and `POST /api/generate-qbr` streams `RUN_STARTED`, step events, state deltas, draft text, and `RUN_FINISHED`.
 - [VERIFY] 2026-04-15: Performed a browser smoke pass on the deployed URL: homepage loaded, 5 account cards rendered, account routing opened `Altura Systems`, and the console reported `0` errors / `0` warnings.
+- [PROGRESS] 2026-04-15: Fixed Vercel SSE streaming — removed the deployment-safe manual SSE fallback that ran the pipeline synchronously (all events arrived in a burst). Restored the original AG-UI protocol streaming path (`LangGraphAgent.run()` → `astream_events()`) and added anti-buffering response headers. Step-by-step progress now displays progressively on Vercel.
 - [DONE] 2026-04-15: `05_deployment` complete for the chosen Vercel CLI deployment path.
