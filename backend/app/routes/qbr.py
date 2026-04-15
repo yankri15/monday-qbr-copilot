@@ -24,7 +24,7 @@ from ag_ui.core import (
     TextMessageStartEvent,
 )
 
-from app.agents.graph import build_qbr_langgraph_agent, run_qbr_pipeline
+from app.agents.graph import build_qbr_langgraph_agent, get_qbr_graph, run_qbr_pipeline
 from app.agents.refiner import refine_draft
 from app.data.upload_store import get_uploaded_account_by_name
 from app.models.customer import CustomerAccount
@@ -187,7 +187,7 @@ async def _generate_qbr_stream_vercel_fallback(
     focus_areas: list[str],
     tone: str,
 ) -> AsyncGenerator[str, None]:
-    """Emit a Vercel-safe SSE sequence using the synchronous graph result."""
+    """Emit a Vercel-safe SSE sequence, streaming one step event at a time via astream."""
 
     thread_id = str(uuid4())
     run_id = str(uuid4())
@@ -198,19 +198,51 @@ async def _generate_qbr_stream_vercel_fallback(
     print(f"[debug-8ee21d] FALLBACK_START t0={_t0:.3f} account={account.account_name!r}", flush=True)
     # #endregion
 
+    yield _encode_sse(RunStartedEvent(threadId=thread_id, runId=run_id))
+
+    graph = get_qbr_graph()
+    config = {"configurable": {"thread_id": f"qbr-{uuid4()}"}}
+    input_state: dict[str, Any] = {
+        "account": account,
+        "focus_areas": list(focus_areas or []),
+        "tone": tone,
+        "judge_retry_count": 0,
+        "judge_critique": "",
+    }
+
+    result_state: dict[str, Any] = {}
+
+    # #region agent log
+    print(f"[debug-8ee21d] ASTREAM_START t={time.monotonic():.3f}", flush=True)
+    # #endregion
+
     try:
-        # #region agent log
-        _t1 = time.monotonic()
-        print(f"[debug-8ee21d] PIPELINE_START t={_t1:.3f} elapsed_before_pipeline={_t1-_t0:.4f}s", flush=True)
-        # #endregion
-        result = run_qbr_pipeline(account, focus_areas=focus_areas, tone=tone)
-        # #region agent log
-        _t2 = time.monotonic()
-        print(f"[debug-8ee21d] PIPELINE_DONE t={_t2:.3f} pipeline_duration={_t2-_t1:.4f}s total={_t2-_t0:.4f}s keys={list(result.keys() if hasattr(result, 'keys') else [])}", flush=True)
-        # #endregion
+        async for chunk in graph.astream(input_state, config=config, stream_mode="updates"):
+            for node_name, updates in chunk.items():
+                # #region agent log
+                print(f"[debug-8ee21d] NODE_DONE node={node_name!r} t={time.monotonic():.3f} elapsed={time.monotonic()-_t0:.4f}s", flush=True)
+                # #endregion
+
+                yield _encode_sse(
+                    StepStartedEvent(stepName=node_name, message=STEP_MESSAGES.get(node_name))
+                )
+
+                for key in STREAMED_STATE_KEYS:
+                    if key in updates:
+                        yield _encode_sse(
+                            StateDeltaEvent(
+                                delta=[{"op": "add", "path": f"/{key}", "value": updates[key]}]
+                            )
+                        )
+
+                if "final_draft" in updates:
+                    result_state["final_draft"] = updates["final_draft"]
+
+                yield _encode_sse(StepFinishedEvent(stepName=node_name))
+
     except Exception as exc:
         # #region agent log
-        print(f"[debug-8ee21d] PIPELINE_EXCEPTION t={time.monotonic():.3f} err={exc!r}", flush=True)
+        print(f"[debug-8ee21d] ASTREAM_EXCEPTION t={time.monotonic():.3f} err={exc!r}", flush=True)
         traceback.print_exc()
         # #endregion
         print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
@@ -218,34 +250,10 @@ async def _generate_qbr_stream_vercel_fallback(
         return
 
     # #region agent log
-    print(f"[debug-8ee21d] EMITTING_EVENTS t={time.monotonic():.3f} — all events about to be yielded in burst", flush=True)
+    print(f"[debug-8ee21d] ASTREAM_DONE t={time.monotonic():.3f} total={time.monotonic()-_t0:.4f}s", flush=True)
     # #endregion
 
-    yield _encode_sse(RunStartedEvent(threadId=thread_id, runId=run_id))
-
-    step_sequence = (
-        ("quant_agent", "quantitative_insights"),
-        ("qual_agent", "qualitative_insights"),
-        ("strategist", "strategic_synthesis"),
-        ("csm_judge", "judge_verdict"),
-    )
-
-    for step_name, state_key in step_sequence:
-        yield _encode_sse(
-            StepStartedEvent(stepName=step_name, message=STEP_MESSAGES.get(step_name))
-        )
-        if state_key in result:
-            yield _encode_sse(
-                StateDeltaEvent(
-                    delta=[{"op": "add", "path": f"/{state_key}", "value": result[state_key]}]
-                )
-            )
-        yield _encode_sse(StepFinishedEvent(stepName=step_name))
-
-    yield _encode_sse(
-        StepStartedEvent(stepName="editor", message=STEP_MESSAGES.get("editor"))
-    )
-    final_draft = result.get("final_draft", "")
+    final_draft = result_state.get("final_draft", "")
     if final_draft:
         yield _encode_sse(TextMessageStartEvent(messageId=final_message_id))
         yield _encode_sse(
@@ -255,7 +263,7 @@ async def _generate_qbr_stream_vercel_fallback(
             )
         )
         yield _encode_sse(TextMessageEndEvent(messageId=final_message_id))
-    yield _encode_sse(StepFinishedEvent(stepName="editor"))
+
     yield _encode_sse(RunFinishedEvent(threadId=thread_id, runId=run_id))
 
 
