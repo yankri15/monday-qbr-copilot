@@ -67,6 +67,7 @@ export type WorkflowInsights = {
 
 export type GenerateQbrPayload = {
   account_name: string;
+  account: Account;
   focus_areas: FocusArea[];
   tone: AudienceTone;
 };

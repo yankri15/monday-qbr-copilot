@@ -243,6 +243,40 @@ class BackendApiTests(unittest.TestCase):
         streamed_account = stream_mock.call_args.kwargs["account"]
         self.assertEqual(streamed_account.account_name, "Northwind Ops")
 
+    def test_generate_qbr_accepts_frontend_account_payload_shape(self) -> None:
+        with patch(
+            "app.routes.qbr._generate_qbr_stream",
+            return_value=iter(()),
+        ) as stream_mock:
+            response = self.client.post(
+                "/api/generate-qbr",
+                json={
+                    "account_name": "Altura Systems",
+                    "account": {
+                        "account_name": "Altura Systems",
+                        "plan_type": "Enterprise",
+                        "active_users": 420,
+                        "usage_growth_qoq": 0.16,
+                        "automation_adoption_pct": 0.78,
+                        "tickets_last_quarter": 38,
+                        "avg_response_time": 3.2,
+                        "nps_score": 8.3,
+                        "preferred_channel": "Email",
+                        "scat_score": 84.0,
+                        "risk_engine_score": 0.18,
+                        "crm_notes": "Strong quarter.",
+                        "feedback_summary": "Interested in deeper analytics.",
+                        "account_source": "sample",
+                        "upload_id": None,
+                    },
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        streamed_account = stream_mock.call_args.kwargs["account"]
+        self.assertEqual(streamed_account.account_name, "Altura Systems")
+        self.assertEqual(streamed_account.plan_type, "Enterprise")
+
     def test_generate_qbr_prefers_latest_uploaded_version_for_duplicate_name(self) -> None:
         first_upload = self.client.post(
             "/api/upload-data",
@@ -269,6 +303,27 @@ class BackendApiTests(unittest.TestCase):
         streamed_account = stream_mock.call_args.kwargs["account"]
         self.assertEqual(streamed_account.active_users, 144)
         self.assertAlmostEqual(streamed_account.risk_engine_score, 0.19)
+
+    def test_generate_qbr_uses_deployment_safe_stream_for_vercel_host(self) -> None:
+        async def empty_stream():
+            if False:
+                yield ""
+
+        with patch(
+            "app.routes.qbr._generate_qbr_stream",
+            side_effect=AssertionError("primary stream should not be used for deployed host"),
+        ), patch(
+            "app.routes.qbr._generate_qbr_stream_vercel_fallback",
+            return_value=empty_stream(),
+        ) as fallback_mock:
+            response = self.client.post(
+                "/api/generate-qbr",
+                json={"account_name": "Altura Systems"},
+                headers={"host": "monday-qbr-copilot.vercel.app"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        fallback_mock.assert_called_once()
 
     def test_export_pdf_endpoint_returns_pdf_attachment(self) -> None:
         with patch(

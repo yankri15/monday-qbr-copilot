@@ -275,6 +275,7 @@ export function AccountWorkspace({ accountName }: { accountName: string }) {
       await generateQBR(
         {
           account_name: account.account_name,
+          account,
           focus_areas: focusAreas,
           tone,
         },

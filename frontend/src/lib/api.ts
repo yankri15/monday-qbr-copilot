@@ -13,10 +13,15 @@ function getApiBaseUrl() {
   }
 
   if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+    const { protocol, hostname } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+
+    return "";
   }
 
-  return "http://127.0.0.1:8000";
+  return process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : "";
 }
 
 async function parseJsonError(response: Response) {

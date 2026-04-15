@@ -1,5 +1,7 @@
 """QBR generation and refinement endpoints."""
 
+import os
+import traceback
 from typing import Any, AsyncGenerator
 from uuid import uuid4
 
@@ -10,16 +12,18 @@ from ag_ui.core import (
     EventType,
     RunAgentInput,
     RunErrorEvent,
+    RunStartedEvent,
     RunFinishedEvent,
     StateDeltaEvent,
     StateSnapshotEvent,
+    StepFinishedEvent,
     StepStartedEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
     TextMessageStartEvent,
 )
 
-from app.agents.graph import build_qbr_langgraph_agent
+from app.agents.graph import build_qbr_langgraph_agent, run_qbr_pipeline
 from app.agents.refiner import refine_draft
 from app.data.upload_store import get_uploaded_account_by_name
 from app.models.customer import CustomerAccount
@@ -73,6 +77,21 @@ def _build_state_delta(
     return delta
 
 
+def _should_use_deployment_safe_stream(request: Request) -> bool:
+    """Prefer the manual SSE path when running in deployment environments."""
+
+    deployment_markers = ("VERCEL", "VERCEL_ENV", "VERCEL_URL")
+    if any(os.getenv(marker) for marker in deployment_markers):
+        return True
+
+    host = request.headers.get("host", "").casefold()
+    if host.endswith(".vercel.app"):
+        return True
+
+    forwarded_host = request.headers.get("x-forwarded-host", "").casefold()
+    return forwarded_host.endswith(".vercel.app")
+
+
 async def _generate_qbr_stream(
     *,
     request: Request,
@@ -109,7 +128,7 @@ async def _generate_qbr_stream(
             if isinstance(event, StepStartedEvent):
                 step_message = STEP_MESSAGES.get(event.step_name)
                 yield _encode_sse(
-                    StepStartedEvent(step_name=event.step_name, message=step_message)
+                    StepStartedEvent(stepName=event.step_name, message=step_message)
                 )
                 continue
 
@@ -124,11 +143,11 @@ async def _generate_qbr_stream(
                     yield _encode_sse(TextMessageStartEvent(message_id=final_message_id))
                     yield _encode_sse(
                         TextMessageContentEvent(
-                            message_id=final_message_id,
+                            messageId=final_message_id,
                             delta=final_draft,
                         )
                     )
-                    yield _encode_sse(TextMessageEndEvent(message_id=final_message_id))
+                    yield _encode_sse(TextMessageEndEvent(messageId=final_message_id))
                     emitted_final_draft = True
 
                 previous_snapshot = current_snapshot
@@ -140,23 +159,83 @@ async def _generate_qbr_stream(
             if isinstance(event, RunFinishedEvent) and not emitted_final_draft:
                 final_draft = previous_snapshot.get("final_draft")
                 if final_draft:
-                    yield _encode_sse(TextMessageStartEvent(message_id=final_message_id))
+                    yield _encode_sse(TextMessageStartEvent(messageId=final_message_id))
                     yield _encode_sse(
                         TextMessageContentEvent(
-                            message_id=final_message_id,
+                            messageId=final_message_id,
                             delta=final_draft,
                         )
                     )
-                    yield _encode_sse(TextMessageEndEvent(message_id=final_message_id))
+                    yield _encode_sse(TextMessageEndEvent(messageId=final_message_id))
                     emitted_final_draft = True
 
             yield _encode_sse(event)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
+        print(f"Primary QBR stream failed: {exc!r}", flush=True)
+        traceback.print_exc()
         yield _encode_sse(
             RunErrorEvent(message="Failed to generate QBR. Please try again.")
         )
+
+
+async def _generate_qbr_stream_vercel_fallback(
+    *,
+    account: CustomerAccount,
+    focus_areas: list[str],
+    tone: str,
+) -> AsyncGenerator[str, None]:
+    """Emit a Vercel-safe SSE sequence using the synchronous graph result."""
+
+    thread_id = str(uuid4())
+    run_id = str(uuid4())
+    final_message_id = f"draft-{uuid4()}"
+
+    try:
+        result = run_qbr_pipeline(account, focus_areas=focus_areas, tone=tone)
+    except Exception as exc:
+        print(f"Deployment-safe QBR stream failed: {exc!r}", flush=True)
+        traceback.print_exc()
+        yield _encode_sse(RunErrorEvent(message="Failed to generate QBR. Please try again."))
+        return
+
+    yield _encode_sse(RunStartedEvent(threadId=thread_id, runId=run_id))
+
+    step_sequence = (
+        ("quant_agent", "quantitative_insights"),
+        ("qual_agent", "qualitative_insights"),
+        ("strategist", "strategic_synthesis"),
+        ("csm_judge", "judge_verdict"),
+    )
+
+    for step_name, state_key in step_sequence:
+        yield _encode_sse(
+            StepStartedEvent(stepName=step_name, message=STEP_MESSAGES.get(step_name))
+        )
+        if state_key in result:
+            yield _encode_sse(
+                StateDeltaEvent(
+                    delta=[{"op": "add", "path": f"/{state_key}", "value": result[state_key]}]
+                )
+            )
+        yield _encode_sse(StepFinishedEvent(stepName=step_name))
+
+    yield _encode_sse(
+        StepStartedEvent(stepName="editor", message=STEP_MESSAGES.get("editor"))
+    )
+    final_draft = result.get("final_draft", "")
+    if final_draft:
+        yield _encode_sse(TextMessageStartEvent(messageId=final_message_id))
+        yield _encode_sse(
+            TextMessageContentEvent(
+                messageId=final_message_id,
+                delta=final_draft,
+            )
+        )
+        yield _encode_sse(TextMessageEndEvent(messageId=final_message_id))
+    yield _encode_sse(StepFinishedEvent(stepName="editor"))
+    yield _encode_sse(RunFinishedEvent(threadId=thread_id, runId=run_id))
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -164,6 +243,24 @@ def health_check() -> HealthResponse:
     """Backend health endpoint."""
 
     return HealthResponse(status="ok")
+
+
+def _resolve_requested_account(payload: GenerateQBRRequest) -> CustomerAccount | None:
+    account_name = payload.account_name.strip()
+    if not account_name:
+        return None
+
+    if payload.account is not None:
+        if payload.account.account_name.casefold() != account_name.casefold():
+            raise HTTPException(
+                status_code=422,
+                detail="account payload must match account_name",
+            )
+        return CustomerAccount.model_validate(
+            payload.account.model_dump(exclude={"account_source", "upload_id"})
+        )
+
+    return get_uploaded_account_by_name(account_name) or get_account_by_name(account_name)
 
 
 @router.post("/generate-qbr")
@@ -176,19 +273,25 @@ async def generate_qbr(
     account_name = payload.account_name.strip()
     if not account_name:
         raise HTTPException(status_code=422, detail="account_name must not be empty")
-    account = get_uploaded_account_by_name(account_name) or get_account_by_name(account_name)
+    account = _resolve_requested_account(payload)
     if account is None:
         raise HTTPException(status_code=404, detail=f"Unknown account: {account_name}")
 
-    return StreamingResponse(
-        _generate_qbr_stream(
+    if _should_use_deployment_safe_stream(request):
+        stream = _generate_qbr_stream_vercel_fallback(
+            account=account,
+            focus_areas=payload.focus_areas,
+            tone=payload.tone,
+        )
+    else:
+        stream = _generate_qbr_stream(
             request=request,
             account=account,
             focus_areas=payload.focus_areas,
             tone=payload.tone,
-        ),
-        media_type="text/event-stream",
-    )
+        )
+
+    return StreamingResponse(stream, media_type="text/event-stream")
 
 
 @router.post("/refine-qbr", response_model=RefineQBRResponse)

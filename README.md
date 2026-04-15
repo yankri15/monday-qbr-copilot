@@ -2,6 +2,12 @@
 
 An intelligent agent infrastructure for Customer Success Managers — a human-in-the-loop QBR (Quarterly Business Review) Co-Pilot that automates data analysis and generates evidence-grounded presentation drafts.
 
+## Live Demo
+
+- Production URL: `https://monday-qbr-copilot.vercel.app`
+- Deployment model: single Vercel project using `experimentalServices`
+- Backend API: same origin at `/api/*`
+
 ## Tech Stack
 
 | Layer            | Technology                                         |
@@ -45,7 +51,7 @@ uv run uvicorn app.main:app --reload
 ```bash
 cd frontend
 npm install
-npm run dev      # starts dev server on http://localhost:3000
+npm run dev      # starts dev server on http://localhost:3001
 ```
 
 ### Environment Variables
@@ -59,3 +65,9 @@ cp .env.example .env
 | Variable         | Description           |
 | ---------------- | --------------------- |
 | `OPENAI_API_KEY` | OpenAI API secret key |
+
+## Deployment Notes
+
+- Production deploys use `npx vercel deploy --prod` against the linked Vercel project.
+- The frontend production build uses `next build --webpack` because Turbopack was not stable for this project in the current environment.
+- The deployed app uses same-origin API routing, so `NEXT_PUBLIC_API_URL` is not required for the chosen Vercel services setup.

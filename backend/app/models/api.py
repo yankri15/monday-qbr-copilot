@@ -26,6 +26,13 @@ class GenerateQBRRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     account_name: str = Field(min_length=1, description="Customer account name")
+    account: CustomerAccountResponse | None = Field(
+        default=None,
+        description=(
+            "Optional full account payload from the client. Used to keep uploaded-account "
+            "generation stable in stateless deployment environments."
+        ),
+    )
     focus_areas: list[str] = Field(
         default_factory=list,
         description=(
