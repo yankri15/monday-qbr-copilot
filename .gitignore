@@ -30,3 +30,13 @@ Thumbs.db
 # Misc
 *.log
 .vercel
+.playwright-cli/
+.cursor/
+docs/
+output/
+scripts/
+tmp/
+work_states/
+frontend/AGENTS.md
+frontend/CLAUDE.md
+frontend/README.md
