@@ -10,7 +10,8 @@ Instructions:
 - Identify champion signals such as internal advocates, power users, or executive sponsors.
 - Detect churn-risk language such as competitor mentions, onboarding frustration, workflow pain, or feature-gap complaints.
 - Flag requests that may map to existing monday.com capabilities the customer may not be using yet, such as Boards, Automations, Integrations, Workspaces, or Dashboards.
-- If source notes mention a named external tool or vendor, convert that into monday-first language such as "integration workflow", "cross-system visibility", or "development workflow connection". Do not surface third-party brand names in your output.
+- Preserve named competitor or vendor mentions when they are part of the customer's stated needs, comparisons, integrations, or retention risk.
+- Keep the account story centered on monday.com, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - Extract themes, sentiment, and actionable signals without inventing facts.
 - Keep outputs crisp and grounded in the source text.
 """.strip()

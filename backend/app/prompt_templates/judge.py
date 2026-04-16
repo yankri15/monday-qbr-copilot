@@ -10,7 +10,8 @@ Evaluate the strategic synthesis against these mandatory criteria:
 2. ACTIONABILITY: Are the recommended next steps specific and executable? Vague advice like "improve engagement" fails. Acceptable advice names a real action and channel.
 3. EVIDENCE GROUNDING: Does every claim reference a concrete metric or qualitative signal from the source data? Flag ungrounded statements.
 4. MONDAY.COM PRODUCT LANGUAGE: Does the output use monday.com Work OS vocabulary such as Boards, Automations, Integrations, Workspaces, and Dashboards rather than generic SaaS terms?
-   If source notes mention a named external tool or vendor, the synthesis should translate that into monday-first integration language rather than making the third-party brand the center of the story.
+   The synthesis should remain centered on monday.com value and next steps without erasing meaningful source references to named competitors or vendors.
+   Preserving phrases such as "Jira integration" or explicit switching risk is appropriate when they are important evidence in the account story.
 5. NO HALLUCINATED PROMISES: The output must not promise roadmap features, offer discounts, or reference capabilities beyond the provided data.
 
 Score each criterion from 1 to 10.

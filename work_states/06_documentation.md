@@ -6,9 +6,9 @@
 
 | Field         | Value                          |
 |---------------|--------------------------------|
-| Status        | `NOT_STARTED`                  |
-| Owner         | —                              |
-| Last Updated  | —                              |
+| Status        | `DONE`                         |
+| Owner         | Agent                          |
+| Last Updated  | 2026-04-15                     |
 
 ### Dependencies
 
@@ -32,28 +32,28 @@ Create two assignment deliverables that exist as standalone documents alongside 
 
 Per the assignment: *"Overview explaining how you framed the problem, who the user is (CSM, team lead), and what success looks like. Include assumptions, limitations, prioritization and how you'd validate usefulness."*
 
-- [ ] Write the **Problem Framing** section:
+- [x] Write the **Problem Framing** section:
   - CSMs spend 5+ hours per account preparing QBRs manually
   - Data is scattered across CRM notes, support tickets, usage metrics, and NPS
   - Inconsistent storytelling and missed insights across accounts
-- [ ] Write the **User Persona** section:
+- [x] Write the **User Persona** section:
   - Primary: Customer Success Manager (CSM) — prepares QBRs for their book of business
   - Secondary: Team Lead / VP CS — reviews QBR quality and consistency across the team
-- [ ] Write the **Success Metrics** section:
+- [x] Write the **Success Metrics** section:
   - Time-to-QBR reduced from 5+ hours to ~15 minutes of review
   - Recommendation coverage: every QBR includes data-grounded next steps
   - CSM trust: transparent reasoning with inline data citations
-- [ ] Write the **Assumptions & Limitations** section:
+- [x] Write the **Assumptions & Limitations** section:
   - Simulated dataset (5 accounts, 13 fields) — not connected to live monday.com boards
   - Single-quarter snapshot — no historical trend analysis across multiple quarters
   - OpenAI as sole LLM provider — no model comparison or fallback
   - No authentication or multi-tenant support in the PoC
-- [ ] Write the **Prioritization** section:
+- [x] Write the **Prioritization** section:
   - P0: Core QBR generation pipeline with structured + unstructured data
   - P1: Real-time streaming UX (AG-UI) for transparency
   - P1: HITL refinement for trust and control
   - P2: Export/sharing, multi-quarter trends, live integrations
-- [ ] Write the **Validation Approach** section:
+- [x] Write the **Validation Approach** section:
   - A/B test: CSM satisfaction comparing AI-drafted vs manually-drafted QBRs
   - Time tracking: measure prep time reduction per account
   - Recommendation quality: review by CS leadership for business relevance
@@ -62,37 +62,39 @@ Per the assignment: *"Overview explaining how you framed the problem, who the us
 
 Per the assignment: *"Showing key prompts for insight extraction, summarization, and recommendations. Include how you handled hallucinations and structured outputs (schemas, temperature, format)."*
 
-- [ ] Document **each agent's prompt** (extract from actual codebase):
+- [x] Document **each agent's prompt** (extract from actual codebase):
   - Quant Agent: metrics analysis prompt, input fields, expected output
   - Qual Agent: sentiment/theme extraction prompt, input fields, expected output
   - Strategist: synthesis prompt, cross-referencing approach, evidence-grounding instructions
   - Editor: formatting prompt, Markdown structure, citation instructions
   - Refiner: HITL refinement prompt, instruction-following approach
-- [ ] Document **hallucination prevention strategy**:
+- [x] Document **hallucination prevention strategy**:
   - Pydantic structured output schemas (JSON mode) enforce field-level type safety
   - Separation of concerns: each agent sees only its relevant data slice
   - Evidence grounding: Strategist must cite specific metrics for each recommendation
   - Temperature settings and rationale for each agent
-- [ ] Document **structured output schemas** with examples:
+- [x] Document **structured output schemas** with examples:
   - `QuantInsights`: show the Pydantic model and a sample output
   - `QualInsights`: show the Pydantic model and a sample output
   - `StrategicSynthesis`: show the recommendation structure with evidence fields
-- [ ] Save as `docs/design_brief.md` and `docs/prompts_documentation.md`
+- [x] Save as `docs/design_brief.md` and `docs/prompts_documentation.md`
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `docs/design_brief.md` exists and is 1–2 pages covering problem framing, user persona, success metrics, assumptions, limitations, prioritization, and validation approach
-- [ ] `docs/prompts_documentation.md` exists and documents all 5 agent prompts, hallucination prevention strategy, structured output schemas with examples, and temperature settings
-- [ ] Both documents reference the actual implementation (file paths, schema names) rather than being abstract
-- [ ] All field-specific terminology matches the assignment dataset definitions (SCAT = Success Confidence & Adoption Trend 0–100, risk_engine_score = AI-predicted churn risk 0–1, etc.)
+- [x] `docs/design_brief.md` exists and is 1–2 pages covering problem framing, user persona, success metrics, assumptions, limitations, prioritization, and validation approach
+- [x] `docs/prompts_documentation.md` exists and documents all 6 agent prompts (including CSM Judge), hallucination prevention strategy, structured output schemas with examples, and temperature settings
+- [x] Both documents reference the actual implementation (file paths, schema names) rather than being abstract
+- [x] All field-specific terminology matches the assignment dataset definitions (SCAT = Success Confidence & Adoption Trend 0–100, risk_engine_score = AI-predicted churn risk 0–1, etc.)
 
 ---
 
 ## Technical Decisions
 
-_No decisions yet._
+- Documented all 6 agents (including CSM Judge) rather than the 5 originally planned — the judge quality gate is a key architectural differentiator worth calling out.
+- Included sample JSON outputs for each schema to make the documentation concrete rather than abstract.
+- Used verbatim system prompts from the codebase rather than paraphrased summaries.
 
 ---
 
@@ -112,4 +114,4 @@ _No decisions yet._
 
 ## Log
 
-_No entries yet._
+- **2026-04-15:** Created `docs/design_brief.md` (problem framing, personas, success metrics, assumptions/limitations, prioritization, validation approach) and `docs/prompts_documentation.md` (architecture overview with mermaid diagram, all 6 agent prompts with verbatim system prompts, model/temperature configs, hallucination prevention strategy across 6 layers, structured output schemas with sample JSON). Both reference actual codebase paths and use assignment-defined field semantics. Marked DONE.

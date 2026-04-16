@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from ag_ui.core import EventType, RunAgentInput
 
+from app.agents.brand_guardrails import normalize_monday_facing_language
 from app.agents.editor import run_editor
 from app.agents.graph import build_qbr_langgraph_agent, run_qbr_pipeline
 from app.agents.qual_agent import run_qual_agent
@@ -166,7 +167,7 @@ class AgentFrameworkTests(unittest.TestCase):
         "app.agents.editor.invoke_text_output",
         return_value="# Altura Systems QBR Draft\n## Recommendations\nPrioritize Jira integration.",
     )
-    def test_editor_normalizes_external_vendor_language(self, _mock_invoke) -> None:
+    def test_editor_preserves_named_competitor_reference(self, _mock_invoke) -> None:
         draft = run_editor(
             {
                 "account": self.account,
@@ -174,8 +175,47 @@ class AgentFrameworkTests(unittest.TestCase):
             }
         )["final_draft"]
 
-        self.assertNotIn("Jira", draft)
-        self.assertIn("monday.com integration workflow", draft)
+        self.assertIn("Jira integration", draft)
+
+    def test_brand_guardrails_preserve_competitor_switching_signal(self) -> None:
+        text = "Customer is considering moving to Jira because leadership doubts monday adoption."
+
+        normalized = normalize_monday_facing_language(text)
+
+        self.assertEqual(normalized, text)
+        self.assertIn("Jira", normalized)
+        self.assertIn("moving to Jira", normalized)
+
+    def test_brand_guardrails_preserve_integration_reference(self) -> None:
+        text = "Customer asked for Jira integration and Jira sync with engineering workflows."
+
+        normalized = normalize_monday_facing_language(text)
+
+        self.assertEqual(normalized, text)
+        self.assertIn("Jira integration", normalized)
+        self.assertIn("Jira sync", normalized)
+
+    @patch(
+        "app.agents.editor.invoke_text_output",
+        return_value=(
+            "# Altura Systems QBR Draft\n"
+            "## Executive Summary\nCustomer is considering moving to Jira next quarter.\n"
+            "## Key Metrics\n- 420 active users\n"
+            "## Health Assessment\nRetention risk increased.\n"
+            "## Recommendations\n- Run an executive recovery plan focused on adoption gaps versus Jira.\n"
+            "## Next Steps\n- Schedule a save plan."
+        ),
+    )
+    def test_editor_preserves_competitor_name_when_it_is_the_risk_signal(self, _mock_invoke) -> None:
+        draft = run_editor(
+            {
+                "account": self.account,
+                "strategic_synthesis": _sample_strategy().model_dump(),
+            }
+        )["final_draft"]
+
+        self.assertIn("moving to Jira", draft)
+        self.assertIn("versus Jira", draft)
 
     @patch("app.agents.quant_agent.generate_quantitative_insights", return_value=_sample_quant())
     @patch("app.agents.qual_agent.generate_qualitative_insights", return_value=_sample_qual())

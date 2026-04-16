@@ -107,9 +107,9 @@ Files:
 
 ### 7. monday-first brand guardrails
 
-One critical refinement was preventing third-party tool names from becoming the headline of the report.
+One critical refinement was making sure third-party tool names or competitor mentions do not become the headline of the report while still preserving meaningful source evidence.
 
-For example, when the source notes mention `Jira`, the generated QBR should still remain clearly about monday.com value, monday.com workflows, monday.com integrations, and monday.com product adoption.
+For example, when the source notes mention `Jira`, the generated QBR should still remain clearly about monday.com value, monday.com workflows, monday.com integrations, and monday.com product adoption. At the same time, relevant evidence such as `Jira integration`, `Jira sync`, or comparison risk should remain visible when it is part of the real account story.
 
 To enforce that:
 - prompts were tightened
@@ -265,11 +265,13 @@ Real OpenAI-backed generations were run to confirm that the controls actually sh
 A live Altura Systems generation was re-run after the brand guardrails were added.
 
 Result:
-- the final draft no longer surfaced `Jira`
-- the report used monday-first wording such as:
-  - `integration workflows`
+- the report remained centered on monday.com value and next steps
+- meaningful source references such as `Jira integration` or `Jira sync` were preserved when relevant to the account story
+- the account was framed as an integration / workflow need, not falsely as an explicit desire to leave monday.com
+- the report still used monday-first wording such as:
   - `monday.com Integrations and Automations`
-  - `development workflow connection`
+  - `workflow adoption`
+  - `development workflow alignment`
 
 ---
 

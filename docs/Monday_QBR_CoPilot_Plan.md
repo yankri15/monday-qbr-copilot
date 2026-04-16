@@ -14,7 +14,7 @@ Instead of a simple script that outputs a static text block, this solution is an
 To demonstrate full end-to-end (e2e) product ownership and deliver a production-ready feel:
 * **Frontend:** Next.js / React (Tailwind CSS for sleek, monday-esque UI) + CopilotKit for agent-UI integration.
 * **Backend:** FastAPI (Python) - lightweight, fast, and native to AI libraries.
-* **Agent Framework:** LangGraph for deterministic state management.
+* **Agent Framework:** LangGraph for explicit, modular state management.
 * **Agent-User Streaming:** AG-UI Protocol (`ag-ui-langgraph`) — the open standard for agent-to-frontend communication via SSE, providing lifecycle events, state sync, and structured streaming.
 * **Deployment:** Vercel (Monorepo hosting both the Next.js FE and FastAPI serverless functions).
 * **LLM Provider:** OpenAI API key
@@ -56,7 +56,7 @@ By implementing a state graph, we avoid the pitfalls of monolithic prompts (hall
 * `preferred_channel` — Main communication preference (Email / Phone / Chat / In-app chat).
 
 **The Nodes (Sub-Agents):**
-1. **Node 1: The Quant Agent:** Ingests structured numeric data (`active_users`, `usage_growth_qoq`, `automation_adoption_pct`, `tickets_last_quarter`, `avg_response_time`, `nps_score`, `scat_score`, `risk_engine_score`). Outputs a strictly typed JSON object quantifying business health (e.g., `{"health": "at risk", "key_metric": "usage_growth dropped by 10%"}`).
+1. **Node 1: The Quant Agent:** Ingests structured numeric data (`active_users`, `usage_growth_qoq`, `automation_adoption_pct`, `tickets_last_quarter`, `avg_response_time`, `nps_score`, `scat_score`, `risk_engine_score`) and turns it into a compact business readout. This creates a modular interpretation layer over structured signals and a clean place to absorb richer quantitative inputs later (e.g., `{"health": "at risk", "key_metric": "usage_growth dropped by 10%"}`).
 2. **Node 2: The Qual Agent:** Ingests unstructured CRM free text (`crm_notes`, `feedback_summary`). Extracts themes and sentiment using structured JSON outputs (e.g., `{"sentiment": "frustrated", "core_complaint": "slow response times"}`).
 3. **Node 3: The Strategist:** Synthesizes the JSON outputs from Node 1 and Node 2, plus `preferred_channel` for communication-aware recommendations. Designed to find the intersection of data and produce evidence-grounded recommendations (e.g., *"Quant shows high churn risk, Qual shows support frustration -> Recommendation: Escalate priority support routing via Chat (preferred channel)."*). Each recommendation cites the specific metrics that support it.
 4. **Node 4: The Editor:** Formats the Strategist's synthesized logic into a crisp, slide-ready Markdown narrative with inline data citations.

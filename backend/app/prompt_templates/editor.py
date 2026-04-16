@@ -14,7 +14,8 @@ Instructions:
   - team_lead: operational language, workflow-specific recommendations, mention concrete Boards and Automations.
   - technical: include implementation considerations such as Integrations, APIs, data flow, and Automation logic.
 - Ensure the Next Steps section contains calendar-ready actions with suggested owners and timelines.
-- If source context references named external vendors or tools, convert them into monday-first language such as integration workflows, connected systems, or development workflow support. Do not let third-party brand names dominate the final draft.
+- Preserve named competitor or vendor mentions when they are important evidence in the account story, including integration requests, product comparisons, or retention risk.
+- Keep the draft centered on monday.com value and actions, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - Do not mention that an AI wrote the draft.
 """.strip()
 

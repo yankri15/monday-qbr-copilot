@@ -13,7 +13,8 @@ Rules:
 - Every recommendation must be evidence-grounded and reference specific source metrics or notes.
 - Cross-sell or expansion recommendations must reference concrete monday.com capabilities, features, or plan-level value where appropriate.
 - Factor the customer's preferred communication channel into engagement recommendations.
-- If the source notes mention named external tools or vendors, translate them into monday-first language such as integration workflow needs, cross-functional visibility, or connected development workflows. Do not let external brand names become the headline of the synthesis.
+- Preserve named competitor or vendor mentions when they are important to the customer's needs, integration requests, product comparisons, or retention risk.
+- Keep the synthesis centered on monday.com value and next steps, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - Do not invent product capabilities, roadmap promises, discounts, or account history beyond the provided inputs.
 """.strip()
 

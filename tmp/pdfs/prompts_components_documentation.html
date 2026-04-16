@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>QBR Co-Pilot Prompts and Components Documentation</title><style>
+  :root {
+    --text: #1f2937;
+    --muted: #5b6473;
+    --line: #d7dbe3;
+    --accent: #334155;
+    --code-bg: #f5f6f8;
+    --table-head: #f3f4f6;
+  }
+
+  * { box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 22mm 18mm 22mm 18mm;
+  }
+
+  body {
+    margin: 0;
+    background: white;
+    color: var(--text);
+    font-family: "Aptos", "Calibri", "Segoe UI", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  main {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  .sheet {
+    padding: 0;
+  }
+
+  h1, h2, h3, h4 {
+    color: var(--text);
+    margin-top: 1.15em;
+    margin-bottom: 0.45em;
+    line-height: 1.25;
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 20pt;
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: 14pt;
+    font-weight: 700;
+  }
+
+  h3 {
+    font-size: 12pt;
+    font-weight: 700;
+  }
+
+  p, li {
+    font-size: 11pt;
+  }
+
+  p, ul, ol, table, pre, blockquote {
+    margin-top: 0;
+    margin-bottom: 0.85em;
+  }
+
+  ul, ol {
+    padding-left: 1.4em;
+  }
+
+  li + li {
+    margin-top: 0.2em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  code {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 0.08em 0.28em;
+    border-radius: 4px;
+    font-size: 0.95em;
+  }
+
+  pre {
+    background: #fbfbfc;
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    border-radius: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  .mermaid-wrap {
+    margin: 0.8em 0 1em;
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5pt;
+    margin-bottom: 1em;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 700;
+  }
+
+  blockquote {
+    margin-left: 0;
+    padding: 8px 12px;
+    border-left: 3px solid #b8c0cc;
+    background: #fafafa;
+    color: var(--muted);
+  }
+
+  hr {
+    display: none;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  .md-root > h1:first-child {
+    margin-top: 0;
+  }
+
+  .md-root p,
+  .md-root li {
+    widows: 3;
+    orphans: 3;
+  }
+
+  @media print {
+    main {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .sheet {
+      padding: 0;
+    }
+  }
+</style><script type="module">
+            import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+            mermaid.initialize({
+              startOnLoad: false,
+              theme: "neutral",
+              securityLevel: "loose",
+              flowchart: { useMaxWidth: true, htmlLabels: true }
+            });
+
+            window.addEventListener("load", async () => {
+              const nodes = document.querySelectorAll(".mermaid");
+              if (nodes.length > 0) {
+                await mermaid.run({ nodes });
+              }
+              window.__PDF_READY__ = true;
+            });
+          </script></head><body><main><section class="sheet"><h1>QBR Co-Pilot: Prompts &amp; Components Documentation</h1>
+<h2>1. Prompt Strategy</h2>
+<p>The PoC does not rely on a single prompt. It splits the workflow into specialized steps so each model sees only the context it needs:</p>
+<ul>
+<li><strong>Insight extraction:</strong> separate structured and unstructured analysis</li>
+<li><strong>Summarization and recommendations:</strong> combine both views into one account strategy</li>
+<li><strong>Drafting:</strong> turn the synthesis into a final QBR narrative</li>
+<li><strong>Refinement:</strong> let the CSM revise the draft without rerunning the entire pipeline</li>
+</ul>
+<p>This structure improves grounding and makes failures easier to detect and correct.</p>
+<h2>2. Key Prompts</h2>
+<h3>A. Insight Extraction</h3>
+<p><strong>Quant Agent</strong></p>
+<p>Purpose: interpret already-structured metrics such as usage growth, automation adoption, support burden, NPS, SCAT, and churn risk into a compact business readout.</p>
+<p>Key instructions:</p>
+<blockquote>
+<p>Analyze only the provided structured account metrics.
+Call out usage growth as the main conversation driver.
+Flag low automation adoption as a risk signal.
+Do not invent values.</p>
+</blockquote>
+<p>This node is intentionally modular. It is not raw rule logic; it is an interpretation layer over structured signals that pre-shapes the quantitative picture into business-relevant outputs and creates a clean place to absorb richer or noisier quantitative inputs later.</p>
+<p><strong>Qual Agent</strong></p>
+<p>Purpose: analyze CRM notes and customer feedback.</p>
+<p>Key instructions:</p>
+<blockquote>
+<p>Analyze only the CRM notes and feedback summary.
+Extract themes, sentiment, and actionable signals.
+Detect churn-risk language and champion signals.
+Keep the draft centered on monday.com value without erasing meaningful references to external tools, competitors, or integration needs when they are part of the account story.</p>
+</blockquote>
+<h3>B. Summarization and Recommendations</h3>
+<p><strong>Strategist</strong></p>
+<p>Purpose: combine quantitative and qualitative findings into a strategic account view.</p>
+<p>Key instructions:</p>
+<blockquote>
+<p>Every key insight must support either retention or expansion.
+Every recommendation must be evidence-grounded.
+Use monday.com Work OS vocabulary.
+Do not invent product capabilities, roadmap promises, or account history.</p>
+</blockquote>
+<p>This stage is also where the CSM’s selected <strong>focus area</strong> is applied. For example, <code>churn_risk</code> pushes the synthesis toward retention and mitigation, while <code>upsell_opportunity</code> pushes it toward expansion.</p>
+<h3>C. Final Drafting</h3>
+<p><strong>Editor</strong></p>
+<p>Purpose: convert the strategic synthesis into the QBR draft.</p>
+<p>Key instructions:</p>
+<blockquote>
+<p>Turn the strategic synthesis into a polished Markdown draft.
+Keep the writing evidence-grounded and presentation-ready.
+Adapt to the requested audience tone.
+Do not mention that an AI wrote the draft.</p>
+</blockquote>
+<p>This is where the selected <strong>audience tone</strong> is applied:</p>
+<ul>
+<li><code>executive</code> -&gt; strategic, high-level, ROI-oriented</li>
+<li><code>team_lead</code> -&gt; operational, workflow-specific</li>
+<li><code>technical</code> -&gt; implementation-oriented</li>
+</ul>
+<h2>3. Structured Outputs</h2>
+<p>Structured outputs are central to the design because they force the analytical steps to return known fields instead of free-form text.</p>
+<h3>QuantInsights</h3>
+<ul>
+<li><code>health_status</code></li>
+<li><code>key_metrics</code></li>
+<li><code>growth_trend</code></li>
+<li><code>risk_flags</code></li>
+</ul>
+<h3>QualInsights</h3>
+<ul>
+<li><code>overall_sentiment</code></li>
+<li><code>core_themes</code></li>
+<li><code>key_quotes</code></li>
+<li><code>action_signals</code></li>
+</ul>
+<h3>StrategicSynthesis</h3>
+<ul>
+<li><code>executive_summary</code></li>
+<li><code>strengths</code></li>
+<li><code>concerns</code></li>
+<li><code>recommendations</code></li>
+<li><code>cross_sell_opportunities</code></li>
+<li><code>data_citations</code></li>
+</ul>
+<h3>Recommendation</h3>
+<p>Each recommendation also carries:</p>
+<ul>
+<li><code>recommendation</code></li>
+<li><code>evidence</code></li>
+<li><code>grounding_metrics</code></li>
+</ul>
+<p>This is important because the system is not only asked to produce advice, but to show why that advice is justified.</p>
+<h2>4. Hallucination Prevention and Grounding</h2>
+<p>The PoC uses several layers to reduce hallucinations:</p>
+<ol>
+<li>
+<p><strong>Separation of concerns</strong></p>
+<ul>
+<li>Quant only sees structured metrics and turns them into a compact business readout.</li>
+<li>Qual only sees CRM notes and feedback.</li>
+<li>Strategist combines both.</li>
+</ul>
+</li>
+<li>
+<p><strong>Strict structured outputs</strong></p>
+<ul>
+<li>Analytical agents use Pydantic schemas with extra fields forbidden.</li>
+<li>JSON-schema output mode keeps results in a known format.</li>
+</ul>
+</li>
+<li>
+<p><strong>Evidence grounding</strong></p>
+<ul>
+<li>Recommendations must include <code>evidence</code> and <code>grounding_metrics</code>.</li>
+<li>The Strategist is explicitly instructed not to invent claims.</li>
+</ul>
+</li>
+<li>
+<p><strong>Judge step</strong></p>
+<ul>
+<li>A CSM Judge reviews the synthesis for actionability, grounding, retention/expansion framing, and monday.com language.</li>
+<li>If needed, the Strategist retries before the draft reaches the Editor.</li>
+</ul>
+</li>
+<li>
+<p><strong>Brand guardrails</strong></p>
+<ul>
+<li>Brand guardrails keep the report centered on monday.com value and next steps without erasing meaningful source evidence such as competitor mentions, integration requests, or switching-risk signals when they matter to the account story.</li>
+</ul>
+</li>
+</ol>
+<h2>5. Temperature and Format Choices</h2>
+<table><thead><tr><th>Component</th><th>Output Type</th><th>Temperature</th><th>Why</th></tr></thead><tbody><tr><td>Quant Agent</td><td>Structured JSON</td><td><code>0.0</code></td><td>Stable interpretation of structured signals into a compact business readout</td></tr><tr><td>Qual Agent</td><td>Structured JSON</td><td><code>0.0</code></td><td>Stable extraction of themes and sentiment from notes</td></tr><tr><td>Strategist</td><td>Structured JSON</td><td><code>0.3</code></td><td>Some flexibility, still grounded</td></tr><tr><td>CSM Judge</td><td>Structured JSON</td><td><code>0.0</code></td><td>Stable quality scoring</td></tr><tr><td>Editor</td><td>Markdown</td><td><code>0.2</code></td><td>Natural but controlled prose</td></tr><tr><td>Refiner</td><td>Markdown</td><td><code>0.3</code></td><td>Flexible instruction-following</td></tr></tbody></table>
+<h2>6. Awareness of Model Limits</h2>
+<p>This PoC assumes the model is good at synthesis but not automatically trustworthy. That is why the design avoids asking one prompt to do everything and why the final output remains editable. The co-pilot’s role is to draft a strong first version for the CSM, not to replace judgment, approval, or customer-facing accountability.</p></section></main></body></html>
