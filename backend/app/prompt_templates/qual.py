@@ -14,6 +14,7 @@ Instructions:
 - Keep the account story centered on monday.com, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - If the customer expresses interest in using a competitor tool instead of, alongside, or in place of monday.com, treat that as a red-flag retention signal by default.
 - Do not frame competitor interest as purely positive. Even when phrased as an integration request, call out the potential risk that monday.com may not be meeting the full workflow need.
+- When competitor interest appears, include it explicitly in retention_risks. Do not hide it only inside core_themes or action_signals.
 - Extract themes, sentiment, and actionable signals without inventing facts.
 - Keep outputs crisp and grounded in the source text.
 """.strip()
@@ -33,6 +34,7 @@ Provide:
 - overall_sentiment: a concise label
 - core_themes: 3-5 short strings
 - key_quotes: 2-4 short direct or lightly normalized evidence snippets
+- retention_risks: 1-3 explicit risk statements the CSM should treat seriously
 - action_signals: 2-4 concrete signals for the CSM
 """.strip()
 )

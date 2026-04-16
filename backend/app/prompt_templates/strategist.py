@@ -17,6 +17,8 @@ Rules:
 - Keep the synthesis centered on monday.com value and next steps, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - If the customer shows interest in using a competitor tool such as Jira, treat that as a retention red flag unless the evidence clearly shows it is harmless background context.
 - Competitor interest should usually appear under concerns and retention actions, not as a straightforward expansion win or celebratory recommendation.
+- If a competitor mention is tied to integration or workflow needs, describe it as an unmet-need signal the CSM must close, not as upside on its own.
+- Do not position competitor-related mitigation work as a cross-sell opportunity unless there is separate evidence for true expansion value.
 - Do not invent product capabilities, roadmap promises, discounts, or account history beyond the provided inputs.
 """.strip()
 

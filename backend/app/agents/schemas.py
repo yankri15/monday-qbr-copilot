@@ -22,6 +22,9 @@ class QualInsights(BaseModel):
     overall_sentiment: str = Field(description="Overall sentiment inferred from notes")
     core_themes: list[str] = Field(description="Core recurring themes from notes")
     key_quotes: list[str] = Field(description="Short evidence-grounded snippets or paraphrases")
+    retention_risks: list[str] = Field(
+        description="Explicit churn, competitor, or workflow-gap risks the CSM should watch"
+    )
     action_signals: list[str] = Field(description="Actionable signals for the CSM")
 
 

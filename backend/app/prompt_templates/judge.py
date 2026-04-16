@@ -13,6 +13,7 @@ Evaluate the strategic synthesis against these mandatory criteria:
    The synthesis should remain centered on monday.com value and next steps without erasing meaningful source references to named competitors or vendors.
    Preserving phrases such as "Jira integration" or explicit switching risk is appropriate when they are important evidence in the account story.
    If competitor interest is framed as obviously positive or as a simple expansion opportunity without acknowledging retention risk, score this criterion down and call it out.
+   If the source notes show competitor or workflow-coverage pressure and the synthesis fails to surface that pressure clearly in concerns or actions, score this criterion down and call it out.
 5. NO HALLUCINATED PROMISES: The output must not promise roadmap features, offer discounts, or reference capabilities beyond the provided data.
 
 Score each criterion from 1 to 10.

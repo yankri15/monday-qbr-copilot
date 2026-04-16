@@ -30,6 +30,10 @@ def generate_qualitative_insights(account) -> QualInsights:
             "key_quotes": [
                 normalize_monday_facing_language(quote) for quote in insights.key_quotes
             ],
+            "retention_risks": [
+                normalize_monday_facing_language(risk)
+                for risk in insights.retention_risks
+            ],
             "action_signals": [
                 normalize_monday_facing_language(signal)
                 for signal in insights.action_signals

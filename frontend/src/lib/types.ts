@@ -39,6 +39,7 @@ export type QualInsights = {
   overall_sentiment: string;
   core_themes: string[];
   key_quotes: string[];
+  retention_risks: string[];
   action_signals: string[];
 };
 

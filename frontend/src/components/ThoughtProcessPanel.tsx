@@ -133,8 +133,9 @@ export function ThoughtProcessPanel({
             items={
               qualitativeInsights
                 ? [
+                    ...qualitativeInsights.retention_risks.slice(0, 2),
                     qualitativeInsights.overall_sentiment,
-                    ...qualitativeInsights.core_themes.slice(0, 2),
+                    ...qualitativeInsights.core_themes.slice(0, 1),
                     ...qualitativeInsights.action_signals.slice(0, 1),
                   ]
                 : []

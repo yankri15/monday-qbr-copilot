@@ -147,6 +147,7 @@ class BackendApiTests(unittest.TestCase):
             overall_sentiment="Positive",
             core_themes=["Adoption expansion", "Integration interest"],
             key_quotes=["Asked about stronger development workflow connectivity."],
+            retention_risks=["Interest in Jira suggests a workflow-ownership gap."],
             action_signals=["Follow up on analytics and integration workflow needs."],
         )
         strategy = StrategicSynthesis(
@@ -304,18 +305,15 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(streamed_account.active_users, 144)
         self.assertAlmostEqual(streamed_account.risk_engine_score, 0.19)
 
-    def test_generate_qbr_uses_deployment_safe_stream_for_vercel_host(self) -> None:
+    def test_generate_qbr_uses_primary_stream_for_vercel_host(self) -> None:
         async def empty_stream():
             if False:
                 yield ""
 
         with patch(
             "app.routes.qbr._generate_qbr_stream",
-            side_effect=AssertionError("primary stream should not be used for deployed host"),
-        ), patch(
-            "app.routes.qbr._generate_qbr_stream_vercel_fallback",
             return_value=empty_stream(),
-        ) as fallback_mock:
+        ) as stream_mock:
             response = self.client.post(
                 "/api/generate-qbr",
                 json={"account_name": "Altura Systems"},
@@ -323,7 +321,7 @@ class BackendApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        fallback_mock.assert_called_once()
+        stream_mock.assert_called_once()
 
     def test_export_pdf_endpoint_returns_pdf_attachment(self) -> None:
         with patch(

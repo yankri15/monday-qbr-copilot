@@ -52,6 +52,9 @@ def _sample_qual() -> QualInsights:
             "Finance & Ops teams adopted monday for automation.",
             "Interested in deeper analytics and workflow sync.",
         ],
+        retention_risks=[
+            "Interest in Jira suggests monday.com may not yet own the development workflow.",
+        ],
         action_signals=[
             "Follow up on integration workflow needs.",
             "Position advanced analytics value.",
@@ -201,6 +204,7 @@ class AgentFrameworkTests(unittest.TestCase):
 
     def test_prompts_treat_competitor_interest_as_retention_risk(self) -> None:
         self.assertIn("red-flag retention signal", QUAL_SYSTEM_PROMPT)
+        self.assertIn("retention_risks", QUAL_SYSTEM_PROMPT)
         self.assertIn("retention red flag", STRATEGIST_SYSTEM_PROMPT)
         self.assertIn("retention risk", EDITOR_SYSTEM_PROMPT)
         self.assertIn("score this criterion down", CSM_JUDGE_SYSTEM_PROMPT)

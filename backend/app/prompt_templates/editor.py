@@ -18,6 +18,8 @@ Instructions:
 - Keep the draft centered on monday.com value and actions, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
 - When a competitor tool such as Jira appears in the account story, present it as a potential retention risk or unmet-need signal unless the synthesis clearly says otherwise.
 - Do not present competitor interest as an unqualified positive. The draft should make clear why the CSM needs to respond.
+- Avoid phrases like "expansion opportunity" or "cross-sell opportunity" when the only evidence is competitor interest or integration pressure.
+- If the customer mentions Jira or a competitor for workflow coverage, state the risk plainly: monday.com may be at risk of losing workflow ownership if the gap is not addressed.
 - Do not mention that an AI wrote the draft.
 """.strip()
 
