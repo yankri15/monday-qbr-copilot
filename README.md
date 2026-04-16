@@ -100,6 +100,17 @@ Current production URL:
 
 - [monday-qbr-copilot.vercel.app](https://monday-qbr-copilot.vercel.app)
 
+## Estimated LLM Cost
+
+With the current default model routing:
+
+- `gpt-4.1-mini` for `quant_agent` and `qual_agent`
+- `gpt-4.1` for `strategist`, `csm_judge`, and `editor`
+
+the estimated cost of a single QBR draft generation is roughly `$0.02–$0.03` per run.
+
+This estimate is based on the current prompt sizes and a real production-style Altura Systems generation. Actual cost will vary slightly based on account data size, output length, and whether the judge step triggers a retry of the strategist.
+
 ## Notes
 
 - The sample account dataset lives in `backend/data/sample_customers_q3_2025.xlsx`.

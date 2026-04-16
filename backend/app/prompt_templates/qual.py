@@ -12,6 +12,8 @@ Instructions:
 - Flag requests that may map to existing monday.com capabilities the customer may not be using yet, such as Boards, Automations, Integrations, Workspaces, or Dashboards.
 - Preserve named competitor or vendor mentions when they are part of the customer's stated needs, comparisons, integrations, or retention risk.
 - Keep the account story centered on monday.com, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
+- If the customer expresses interest in using a competitor tool instead of, alongside, or in place of monday.com, treat that as a red-flag retention signal by default.
+- Do not frame competitor interest as purely positive. Even when phrased as an integration request, call out the potential risk that monday.com may not be meeting the full workflow need.
 - Extract themes, sentiment, and actionable signals without inventing facts.
 - Keep outputs crisp and grounded in the source text.
 """.strip()

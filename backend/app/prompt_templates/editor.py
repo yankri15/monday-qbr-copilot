@@ -16,6 +16,8 @@ Instructions:
 - Ensure the Next Steps section contains calendar-ready actions with suggested owners and timelines.
 - Preserve named competitor or vendor mentions when they are important evidence in the account story, including integration requests, product comparisons, or retention risk.
 - Keep the draft centered on monday.com value and actions, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
+- When a competitor tool such as Jira appears in the account story, present it as a potential retention risk or unmet-need signal unless the synthesis clearly says otherwise.
+- Do not present competitor interest as an unqualified positive. The draft should make clear why the CSM needs to respond.
 - Do not mention that an AI wrote the draft.
 """.strip()
 

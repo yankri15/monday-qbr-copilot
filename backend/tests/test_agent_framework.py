@@ -21,6 +21,10 @@ from app.agents.schemas import (
 )
 from app.agents.strategist import run_strategist
 from app.data.loader import get_account_by_name
+from app.prompt_templates.editor import EDITOR_SYSTEM_PROMPT
+from app.prompt_templates.judge import CSM_JUDGE_SYSTEM_PROMPT
+from app.prompt_templates.qual import QUAL_SYSTEM_PROMPT
+from app.prompt_templates.strategist import STRATEGIST_SYSTEM_PROMPT
 
 
 def _sample_quant() -> QuantInsights:
@@ -194,6 +198,12 @@ class AgentFrameworkTests(unittest.TestCase):
         self.assertEqual(normalized, text)
         self.assertIn("Jira integration", normalized)
         self.assertIn("Jira sync", normalized)
+
+    def test_prompts_treat_competitor_interest_as_retention_risk(self) -> None:
+        self.assertIn("red-flag retention signal", QUAL_SYSTEM_PROMPT)
+        self.assertIn("retention red flag", STRATEGIST_SYSTEM_PROMPT)
+        self.assertIn("retention risk", EDITOR_SYSTEM_PROMPT)
+        self.assertIn("score this criterion down", CSM_JUDGE_SYSTEM_PROMPT)
 
     @patch(
         "app.agents.editor.invoke_text_output",

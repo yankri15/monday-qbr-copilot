@@ -12,6 +12,7 @@ Evaluate the strategic synthesis against these mandatory criteria:
 4. MONDAY.COM PRODUCT LANGUAGE: Does the output use monday.com Work OS vocabulary such as Boards, Automations, Integrations, Workspaces, and Dashboards rather than generic SaaS terms?
    The synthesis should remain centered on monday.com value and next steps without erasing meaningful source references to named competitors or vendors.
    Preserving phrases such as "Jira integration" or explicit switching risk is appropriate when they are important evidence in the account story.
+   If competitor interest is framed as obviously positive or as a simple expansion opportunity without acknowledging retention risk, score this criterion down and call it out.
 5. NO HALLUCINATED PROMISES: The output must not promise roadmap features, offer discounts, or reference capabilities beyond the provided data.
 
 Score each criterion from 1 to 10.

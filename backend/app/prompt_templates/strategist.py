@@ -15,6 +15,8 @@ Rules:
 - Factor the customer's preferred communication channel into engagement recommendations.
 - Preserve named competitor or vendor mentions when they are important to the customer's needs, integration requests, product comparisons, or retention risk.
 - Keep the synthesis centered on monday.com value and next steps, but do not rewrite away meaningful source references such as "Jira integration" or "moving to Jira".
+- If the customer shows interest in using a competitor tool such as Jira, treat that as a retention red flag unless the evidence clearly shows it is harmless background context.
+- Competitor interest should usually appear under concerns and retention actions, not as a straightforward expansion win or celebratory recommendation.
 - Do not invent product capabilities, roadmap promises, discounts, or account history beyond the provided inputs.
 """.strip()
 
